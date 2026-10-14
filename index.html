@@ -104,15 +104,21 @@
           <input type="number" id="timeLimit" value="15" min="5" max="60" class="w-full bg-white/5 border border-purple-500/30 rounded-xl px-4 py-3 text-xl text-center text-white focus:outline-none focus:border-purple-400">
         </div>
 
+        <!-- BẢO MẬT: NHẬP MÃ 6 CHỮ SỐ (ĐỐI CHIẾU CỘT H2 GOOGLE SHEET) -->
+        <div class="text-left mb-4">
+          <label class="block text-sm font-medium text-purple-200 mb-2">Mã bảo mật tải đề (6 chữ số ở ô H2):</label>
+          <input type="password" id="pinCode" maxlength="6" placeholder="Nhập 6 số bảo mật..." class="w-full bg-white/5 border border-purple-500/30 rounded-xl px-4 py-3 text-center text-xl text-yellow-400 font-bold tracking-widest focus:outline-none focus:border-purple-400">
+        </div>
+
         <div class="text-left mb-6">
           <label class="block text-sm font-medium text-purple-200 mb-2">API Ngân Hàng Câu Hỏi:</label>
           <input type="text" id="sheetUrl" value="https://script.google.com/macros/s/AKfycbxTGF_8DusDeocl4LqOgMdiP5_l9arZRo8y0HasDmyuzsW65XvUZQeWgs661J6gDw/exec" class="w-full bg-white/5 border border-purple-500/30 rounded-xl px-4 py-3 text-xs text-gray-300 focus:outline-none focus:border-purple-400" readonly>
         </div>
 
         <button onclick="fetchQuestionsAndCreateRoom()" class="glow-btn w-full bg-gradient-to-r from-purple-600 to-pink-600 font-bold py-4 rounded-xl text-lg flex items-center justify-center gap-2">
-          <i class="fa-solid fa-download"></i> Tải Đề & Tạo Mã QR
+          <i class="fa-solid fa-shield-halved"></i> Xác Nhận & Tải Đề
         </button>
-        <p id="setup-msg" class="text-sm mt-3 text-amber-400"></p>
+        <p id="setup-msg" class="text-sm mt-3 text-amber-400 font-semibold"></p>
       </div>
 
       <!-- CHỜ HỌC SINH -->
@@ -418,14 +424,26 @@
     // --- QUẢN TRỊ (ADMIN) ---
     async function fetchQuestionsAndCreateRoom() {
       const url = document.getElementById('sheetUrl').value.trim();
+      const pin = document.getElementById('pinCode').value.trim();
       const msg = document.getElementById('setup-msg');
       timeLimit = parseInt(document.getElementById('timeLimit').value) || 15;
 
-      msg.innerText = "⏳ Đang tải câu hỏi từ Google Sheet...";
+      if (!pin || pin.length !== 6) {
+        msg.innerText = "⚠️ Vui lòng nhập đủ 6 chữ số bảo mật!";
+        return;
+      }
+
+      msg.innerText = "⏳ Đang xác thực mã bảo mật & tải đề...";
 
       try {
-        const res = await fetch(url);
+        // Gửi mã pin về Google Sheet để đối chiếu với ô H2
+        const res = await fetch(`${url}?pin=${encodeURIComponent(pin)}`);
         const data = await res.json();
+
+        if (data.status === "error") {
+          msg.innerText = "❌ " + (data.message || "Mã bảo mật không chính xác!");
+          return;
+        }
 
         if (data.status === "success" && data.questions && data.questions.length > 0) {
           questions = data.questions;
@@ -481,7 +499,7 @@
           msg.innerText = "❌ Không tìm thấy câu hỏi nào!";
         }
       } catch (e) {
-        msg.innerText = "❌ Lỗi tải câu hỏi: " + e.message;
+        msg.innerText = "❌ Lỗi kết nối Google Sheet: " + e.message;
       }
     }
 
@@ -599,7 +617,7 @@
 
       // Ẩn bảng đáp án trong 3s đọc đề
       document.getElementById('options-grid').classList.add('hidden');
-      document.getElementById('admin-q-status').innerHTML = ''; // Bỏ dòng chữ trạng thái trên máy chiếu
+      document.getElementById('admin-q-status').innerHTML = '';
       
       let readTimeLeft = 3;
       document.getElementById('admin-timer').innerText = readTimeLeft;
