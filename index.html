@@ -192,7 +192,7 @@
           <span id="admin-q-number" class="bg-purple-500/20 text-purple-300 text-sm font-bold px-5 py-1.5 rounded-full border border-purple-500/30">
             Câu 1
           </span>
-          <span id="admin-q-status" class="text-xs text-purple-300/80 italic"><i class="fa-solid fa-bolt text-yellow-400"></i> Trả lời nhanh + cộng thêm điểm</span>
+          <span id="admin-q-status" class="text-xs text-purple-300/80 italic"><i class="fa-solid fa-bolt text-yellow-400"></i> Trả lời sớm nhất nhận 100đ</span>
         </div>
 
         <!-- CÂU HỎI -->
@@ -399,6 +399,10 @@
     let playerHasAnswered = false;
     let mySelectedOption = '';
     let currentAnswersCount = { A: 0, B: 0, C: 0, D: 0 };
+    
+    // MỚI: Đếm số lượng học sinh trả lời ĐÚNG theo thứ tự nhanh/chậm trong câu hiện tại
+    let correctAnswersOrder = 0;
+    let questionPlayerScores = {}; // Lưu điểm số của riêng từng học sinh trong từng câu
 
     window.onload = function() {
       const urlParams = new URLSearchParams(window.location.search);
@@ -479,9 +483,19 @@
               else if (data.type === 'SUBMIT_ANSWER') {
                 const currentQ = questions[data.qIndex];
                 if (currentQ && data.selected === currentQ.correct && players[conn.peer]) {
-                  const speedBonus = data.timeLeft || 0;
-                  players[conn.peer].score += (10 + speedBonus);
+                  correctAnswersOrder++; // Tăng thứ tự người chọn đúng
+                  
+                  // TÍNH ĐIỂM THEO THỨ TỰ THỜI GIAN BẤM
+                  const totalPlayers = Object.keys(players).length || 1;
+                  const step = totalPlayers > 1 ? (90 / (totalPlayers - 1)) : 0;
+                  const points = Math.max(10, Math.round(100 - (correctAnswersOrder - 1) * step));
+                  
+                  players[conn.peer].score += points;
+                  questionPlayerScores[conn.peer] = points;
+                } else {
+                  questionPlayerScores[conn.peer] = 0;
                 }
+
                 if (currentAnswersCount[data.selected] !== undefined) {
                   currentAnswersCount[data.selected]++;
                 }
@@ -584,6 +598,9 @@
       }
 
       currentAnswersCount = { A: 0, B: 0, C: 0, D: 0 };
+      correctAnswersOrder = 0; // Reset thứ tự bấm đúng
+      questionPlayerScores = {};
+
       document.getElementById('chart-container').classList.add('hidden');
 
       // Hiệu ứng chuyển câu mượt mà
@@ -608,7 +625,7 @@
 
       const q = questions[currentQIndex];
       document.getElementById('admin-q-number').innerText = `Câu ${currentQIndex + 1}/${questions.length}`;
-      document.getElementById('admin-q-text').innerText = q.text; // Máy chiếu chỉ hiển thị câu hỏi
+      document.getElementById('admin-q-text').innerText = q.text; 
       document.getElementById('admin-opt-A').innerText = q.options[0] || 'A';
       document.getElementById('admin-opt-B').innerText = q.options[1] || 'B';
       document.getElementById('admin-opt-C').innerText = q.options[2] || 'C';
@@ -638,14 +655,14 @@
 
         if (readTimeLeft <= 0) {
           clearInterval(timerInterval);
-          startOfficialTimer(); // Chuyển sang thời gian làm bài chính thức
+          startOfficialTimer(); 
         }
       }, 1000);
     }
 
     function startOfficialTimer() {
       document.getElementById('options-grid').classList.remove('hidden');
-      document.getElementById('admin-q-status').innerHTML = `<i class="fa-solid fa-bolt text-yellow-400"></i> Trả lời nhanh + cộng thêm điểm`;
+      document.getElementById('admin-q-status').innerHTML = `<i class="fa-solid fa-bolt text-yellow-400"></i> Trả lời sớm nhất nhận 100đ`;
       
       let timeLeft = timeLimit;
       document.getElementById('admin-timer').innerText = timeLeft;
@@ -687,9 +704,16 @@
         }
       });
 
-      broadcastToPlayers({
-        type: 'REVEAL_RESULT',
-        correctOption: correctOpt
+      // GỬI ĐIỂM SỐ RIÊNG TỪNG HỌC SINH ĐỂ HIỂN THỊ
+      adminConns.forEach(conn => {
+        if (conn.open) {
+          const scoreEarned = questionPlayerScores[conn.peer] || 0;
+          conn.send({
+            type: 'REVEAL_RESULT',
+            correctOption: correctOpt,
+            scoreEarned: scoreEarned
+          });
+        }
       });
 
       showAnswersChart();
@@ -775,13 +799,11 @@
             playerHasAnswered = false;
             mySelectedOption = '';
 
-            // Hiệu ứng chuyển câu trên học sinh
             const playerQuiz = document.getElementById('player-quiz');
             playerQuiz.classList.remove('animate-next-q');
             void playerQuiz.offsetWidth;
             playerQuiz.classList.add('animate-next-q');
 
-            // Mở khung nhắc nhở "HÃY NHÌN LÊN MÀN HÌNH MÁY CHIẾU ĐỂ ĐỌC CÂU HỎI!"
             document.getElementById('player-read-box').classList.remove('hidden');
             document.getElementById('player-options-box').classList.add('hidden');
             document.getElementById('player-answered-box').classList.add('hidden');
@@ -849,9 +871,7 @@
               resultIcon.innerHTML = '<i class="fa-solid fa-circle-check text-emerald-400"></i>';
               resultTitle.innerText = 'CHÍNH XÁC!';
               resultTitle.className = 'text-2xl font-black text-emerald-300';
-              
-              const pointsEarned = 10 + (currentTimerValue > 0 ? currentTimerValue : 0);
-              resultScore.innerText = `+${pointsEarned} điểm`;
+              resultScore.innerText = `+${data.scoreEarned} điểm`;
             } else {
               resultBox.className = 'p-6 bg-red-900/60 border-2 border-red-500 rounded-2xl text-center mb-4 shadow-xl';
               resultIcon.innerHTML = '<i class="fa-solid fa-circle-xmark text-red-400"></i>';
@@ -897,8 +917,7 @@
           type: 'SUBMIT_ANSWER',
           name: myPlayerName,
           qIndex: currentQIndex,
-          selected: opt,
-          timeLeft: currentTimerValue
+          selected: opt
         });
       }
     }
