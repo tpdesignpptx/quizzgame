@@ -47,6 +47,22 @@
       opacity: 0.35;
       filter: grayscale(80%);
     }
+
+    /* Animation chuyển câu mới */
+    @keyframes fadeInSlide {
+      from {
+        opacity: 0;
+        transform: translateY(15px) scale(0.98);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+    .animate-next-q {
+      animation: fadeInSlide 0.5s ease-out forwards;
+    }
+
     @keyframes pulse-slow {
       0%, 100% { opacity: 1; transform: scale(1); }
       50% { opacity: 0.8; transform: scale(1.03); }
@@ -151,29 +167,32 @@
           </div>
 
           <div id="modal-player-list" class="max-h-80 overflow-y-auto divide-y divide-slate-800 border border-slate-800 rounded-xl p-2 bg-slate-950/50">
-            <!-- Render danh sách chi tiết ở đây -->
+            <!-- Render danh sách chi tiết -->
           </div>
         </div>
       </div>
 
-      <!-- HIỂN THỊ CÂU HỎI MÁY CHIẾU -->
+      <!-- HIỂN THỊ CÂU HỎI MÁY CHIẾU (MÁY CHIẾU CHỈ HIỂN THỊ CÂU HỎI KHI BẮT ĐẦU) -->
       <div id="admin-game" class="glass rounded-3xl p-8 shadow-2xl hidden text-center relative pt-12">
-        <div class="absolute -top-7 left-1/2 transform -translate-x-1/2 bg-slate-900 border-2 border-amber-400/60 text-amber-300 px-8 py-2.5 rounded-full shadow-2xl flex items-center gap-3">
-          <i class="fa-solid fa-clock text-2xl text-amber-400"></i>
+        
+        <!-- ĐỒNG HỒ ĐẾM NGƯỢC THỜI GIAN -->
+        <div id="admin-timer-box" class="absolute -top-7 left-1/2 transform -translate-x-1/2 bg-slate-900 border-2 border-amber-400/60 text-amber-300 px-8 py-2.5 rounded-full shadow-2xl flex items-center gap-3">
+          <i id="admin-timer-icon" class="fa-solid fa-clock text-2xl text-amber-400"></i>
           <span id="admin-timer" class="text-3xl font-black tracking-wider">15</span>
-          <span class="text-sm font-bold text-amber-200/80">giây</span>
+          <span id="admin-timer-unit" class="text-sm font-bold text-amber-200/80">giây</span>
         </div>
 
         <div class="flex justify-between items-center mb-6">
           <span id="admin-q-number" class="bg-purple-500/20 text-purple-300 text-sm font-bold px-5 py-1.5 rounded-full border border-purple-500/30">
             Câu 1
           </span>
-          <span class="text-xs text-purple-300/80 italic"><i class="fa-solid fa-bolt text-yellow-400"></i> Trả lời nhanh + cộng thêm điểm</span>
+          <span id="admin-q-status" class="text-xs text-purple-300/80 italic"><i class="fa-solid fa-bolt text-yellow-400"></i> Trả lời nhanh + cộng thêm điểm</span>
         </div>
 
-        <h2 id="admin-q-text" class="text-3xl font-extrabold mb-6 text-white leading-relaxed">Nội dung câu hỏi...</h2>
+        <!-- CHỈ HIỂN THỊ NỘI DUNG CÂU HỎI -->
+        <h2 id="admin-q-text" class="text-3xl font-extrabold mb-8 text-white leading-relaxed">Nội dung câu hỏi...</h2>
 
-        <!-- Khung đáp án A, B, C, D -->
+        <!-- Khung đáp án A, B, C, D (Ẩn khi đang đếm 3s chuẩn bị) -->
         <div id="options-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <div id="card-A" class="p-4 bg-red-500/20 border border-red-500/30 rounded-2xl text-lg font-semibold flex items-center justify-between text-left transition-all">
             <div class="flex items-center gap-4">
@@ -314,8 +333,16 @@
           <span id="player-timer" class="text-sm font-bold text-amber-400"><i class="fa-regular fa-clock"></i> 15s</span>
         </div>
 
+        <!-- THÔNG BÁO NHẮC NHỞ HIỂN THỊ TRÊN MÀN HÌNH HỌC SINH CÙNG ĐỒNG HỒ CÁT 3S -->
+        <div id="player-read-box" class="p-8 bg-purple-900/40 border-2 border-purple-500/50 rounded-2xl text-center mb-4 shadow-xl">
+          <i class="fa-solid fa-hourglass-start text-5xl text-yellow-400 mb-3 animate-spin"></i>
+          <h3 class="text-lg font-bold text-white mb-2">HÃY NHÌN LÊN MÀN HÌNH MÁY CHIẾU ĐỂ ĐỌC CÂU HỎI!</h3>
+          <p class="text-xs text-purple-200 mb-4">Màn hình chọn đáp án sẽ mở sau:</p>
+          <div id="player-read-countdown" class="text-5xl font-black text-amber-300 animate-bounce">3</div>
+        </div>
+
         <!-- Khung 4 nút bấm chọn đáp án -->
-        <div id="player-options-box" class="grid grid-cols-2 gap-3 mb-4">
+        <div id="player-options-box" class="grid grid-cols-2 gap-3 mb-4 hidden">
           <button onclick="playerSelectOption('A')" class="opt-btn bg-red-600 active:bg-red-700 p-6 rounded-2xl text-3xl font-black shadow-lg">A</button>
           <button onclick="playerSelectOption('B')" class="opt-btn bg-blue-600 active:bg-blue-700 p-6 rounded-2xl text-3xl font-black shadow-lg">B</button>
           <button onclick="playerSelectOption('C')" class="opt-btn bg-amber-500 active:bg-amber-600 p-6 rounded-2xl text-3xl font-black shadow-lg">C</button>
@@ -338,7 +365,7 @@
           <p id="player-result-score" class="text-lg font-bold text-yellow-300 mt-2"></p>
         </div>
 
-        <p id="player-status-msg" class="text-center text-sm font-semibold text-amber-400 italic min-h-[20px]">Hãy chọn 1 đáp án!</p>
+        <p id="player-status-msg" class="text-center text-sm font-semibold text-amber-400 italic min-h-[20px]"></p>
       </div>
 
       <div id="player-end" class="bg-slate-800 border border-slate-700 rounded-3xl p-8 text-center shadow-2xl hidden">
@@ -353,7 +380,7 @@
   <script>
     let currentRole = '';
     let questions = [];
-    let players = {}; // { connId: { name, score, conn } }
+    let players = {}; 
     let adminConns = []; 
     let playerConn = null; 
     let currentQIndex = 0;
@@ -472,12 +499,10 @@
         return;
       }
 
-      // Render tóm tắt trên màn hình chờ
       container.innerHTML = playerList.map(([id, p]) => 
         `<span class="bg-purple-500/20 text-purple-200 px-4 py-1.5 rounded-full border border-purple-500/30 font-semibold text-sm animate-pulse">${p.name}</span>`
       ).join('');
 
-      // Render chi tiết trong Modal quản lý (kèm nút Loại)
       renderModalPlayerList(playerList);
     }
 
@@ -510,11 +535,9 @@
       renderModalPlayerList(filtered);
     }
 
-    // Nút Loại học sinh ra khỏi phòng
     function kickPlayer(peerId) {
       if (players[peerId]) {
         if (players[peerId].conn && players[peerId].conn.open) {
-          // Gửi thông báo loại đến điện thoại học sinh
           players[peerId].conn.send({ type: 'KICKED' });
           players[peerId].conn.close();
         }
@@ -546,6 +569,13 @@
       currentAnswersCount = { A: 0, B: 0, C: 0, D: 0 };
       document.getElementById('chart-container').classList.add('hidden');
 
+      // Hiệu ứng chuyển câu mượt mà
+      const adminGame = document.getElementById('admin-game');
+      adminGame.classList.remove('animate-next-q');
+      void adminGame.offsetWidth; 
+      adminGame.classList.add('animate-next-q');
+
+      // Reset thẻ đáp án
       ['A', 'B', 'C', 'D'].forEach(opt => {
         const card = document.getElementById(`card-${opt}`);
         const icon = document.getElementById(`icon-${opt}`);
@@ -561,19 +591,52 @@
 
       const q = questions[currentQIndex];
       document.getElementById('admin-q-number').innerText = `Câu ${currentQIndex + 1}/${questions.length}`;
-      document.getElementById('admin-q-text').innerText = q.text;
+      document.getElementById('admin-q-text').innerText = q.text; // Máy chiếu chỉ hiển thị câu hỏi
       document.getElementById('admin-opt-A').innerText = q.options[0] || 'A';
       document.getElementById('admin-opt-B').innerText = q.options[1] || 'B';
       document.getElementById('admin-opt-C').innerText = q.options[2] || 'C';
       document.getElementById('admin-opt-D').innerText = q.options[3] || 'D';
 
-      let timeLeft = timeLimit;
-      document.getElementById('admin-timer').innerText = timeLeft;
+      // Ẩn bảng đáp án trong 3s đọc đề
+      document.getElementById('options-grid').classList.add('hidden');
+      document.getElementById('admin-q-status').innerHTML = ''; // Bỏ dòng chữ trạng thái trên máy chiếu
+      
+      let readTimeLeft = 3;
+      document.getElementById('admin-timer').innerText = readTimeLeft;
+      document.getElementById('admin-timer-unit').innerText = "đọc đề";
+      document.getElementById('admin-timer-icon').className = "fa-solid fa-hourglass-start text-2xl text-amber-400 animate-spin";
+
       clearInterval(timerInterval);
 
+      // Phát lệnh đọc đề 3s
       broadcastToPlayers({
-        type: 'NEW_QUESTION',
-        qIndex: currentQIndex,
+        type: 'NEW_QUESTION_READ',
+        qIndex: currentQIndex
+      });
+
+      // Đếm ngược 3s đọc đề trên máy chiếu
+      timerInterval = setInterval(() => {
+        readTimeLeft--;
+        document.getElementById('admin-timer').innerText = readTimeLeft;
+
+        if (readTimeLeft <= 0) {
+          clearInterval(timerInterval);
+          startOfficialTimer(); // Chuyển sang thời gian làm bài chính thức
+        }
+      }, 1000);
+    }
+
+    function startOfficialTimer() {
+      document.getElementById('options-grid').classList.remove('hidden');
+      document.getElementById('admin-q-status').innerHTML = `<i class="fa-solid fa-bolt text-yellow-400"></i> Trả lời nhanh + cộng thêm điểm`;
+      
+      let timeLeft = timeLimit;
+      document.getElementById('admin-timer').innerText = timeLeft;
+      document.getElementById('admin-timer-unit').innerText = "giây";
+      document.getElementById('admin-timer-icon').className = "fa-solid fa-clock text-2xl text-amber-400";
+
+      broadcastToPlayers({
+        type: 'START_ANSWERING',
         timeLimit: timeLimit
       });
 
@@ -690,19 +753,46 @@
             document.getElementById('player-wait').classList.add('hidden');
             document.getElementById('player-quiz').classList.remove('hidden');
           }
-          else if (data.type === 'NEW_QUESTION') {
+          else if (data.type === 'NEW_QUESTION_READ') {
             currentQIndex = data.qIndex;
             playerHasAnswered = false;
             mySelectedOption = '';
 
-            document.getElementById('player-options-box').classList.remove('hidden');
+            // Hiệu ứng chuyển câu trên học sinh
+            const playerQuiz = document.getElementById('player-quiz');
+            playerQuiz.classList.remove('animate-next-q');
+            void playerQuiz.offsetWidth;
+            playerQuiz.classList.add('animate-next-q');
+
+            // Mở khung nhắc nhở "HÃY NHÌN LÊN MÀN HÌNH MÁY CHIẾU ĐỂ ĐỌC CÂU HỎI!"
+            document.getElementById('player-read-box').classList.remove('hidden');
+            document.getElementById('player-options-box').classList.add('hidden');
             document.getElementById('player-answered-box').classList.add('hidden');
             document.getElementById('player-result-box').classList.add('hidden');
 
             document.getElementById('player-q-progress').innerText = `Câu ${data.qIndex + 1}`;
+            document.getElementById('player-status-msg').innerText = 'Hãy tập trung đọc đề trên máy chiếu!';
+
+            let read3s = 3;
+            document.getElementById('player-read-countdown').innerText = read3s;
+            document.getElementById('player-timer').innerText = `3s`;
+
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+              read3s--;
+              document.getElementById('player-read-countdown').innerText = read3s;
+              document.getElementById('player-timer').innerText = `${read3s}s`;
+              if (read3s <= 0) {
+                clearInterval(timerInterval);
+              }
+            }, 1000);
+          }
+          else if (data.type === 'START_ANSWERING') {
+            document.getElementById('player-read-box').classList.add('hidden');
+            document.getElementById('player-options-box').classList.remove('hidden');
             document.getElementById('player-status-msg').innerText = 'Hãy chọn 1 đáp án!';
             document.getElementById('player-status-msg').className = 'text-center text-sm font-semibold text-amber-400 italic min-h-[20px]';
-            
+
             const btns = document.querySelectorAll('.opt-btn');
             btns.forEach(b => b.disabled = false);
 
@@ -726,6 +816,7 @@
             }, 1000);
           }
           else if (data.type === 'REVEAL_RESULT') {
+            document.getElementById('player-read-box').classList.add('hidden');
             document.getElementById('player-options-box').classList.add('hidden');
             document.getElementById('player-answered-box').classList.add('hidden');
             
@@ -753,7 +844,6 @@
             }
           }
           else if (data.type === 'KICKED') {
-            // Trường hợp học sinh bị Quản trị loại ra khỏi phòng
             document.getElementById('player-wait').classList.add('hidden');
             document.getElementById('player-quiz').classList.add('hidden');
             document.getElementById('player-end').classList.remove('hidden');
