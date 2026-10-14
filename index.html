@@ -112,7 +112,7 @@
 
         <div class="text-left mb-6">
           <label class="block text-sm font-medium text-purple-200 mb-2">API Ngân Hàng Câu Hỏi:</label>
-          <input type="text" id="sheetUrl" value="https://script.google.com/macros/s/AKfycbxTGF_8DusDeocl4LqOgMdiP5_l9arZRo8y0HasDmyuzsW65XvUZQeWgs661J6gDw/exec" class="w-full bg-white/5 border border-purple-500/30 rounded-xl px-4 py-3 text-xs text-gray-300 focus:outline-none focus:border-purple-400" readonly>
+          <input type="text" id="sheetUrl" value="https://script.google.com/macros/s/AKfycbxcr1JQfRQ2F40pyGgXLix9x3VQREv_ZiGdwzSlQzv2Ca_mgAp2Xuu_1dTI6HBDEyI/exec" class="w-full bg-white/5 border border-purple-500/30 rounded-xl px-4 py-3 text-xs text-gray-300 focus:outline-none focus:border-purple-400" readonly>
         </div>
 
         <button onclick="fetchQuestionsAndCreateRoom()" class="glow-btn w-full bg-gradient-to-r from-purple-600 to-pink-600 font-bold py-4 rounded-xl text-lg flex items-center justify-center gap-2">
@@ -178,7 +178,7 @@
         </div>
       </div>
 
-      <!-- HIỂN THỊ CÂU HỎI MÁY CHIẾU (MÁY CHIẾU CHỈ HIỂN THỊ CÂU HỎI KHI BẮT ĐẦU) -->
+      <!-- HIỂN THỊ CÂU HỎI MÁY CHIẾU -->
       <div id="admin-game" class="glass rounded-3xl p-8 shadow-2xl hidden text-center relative pt-12">
         
         <!-- ĐỒNG HỒ ĐẾM NGƯỢC THỜI GIAN -->
@@ -195,10 +195,10 @@
           <span id="admin-q-status" class="text-xs text-purple-300/80 italic"><i class="fa-solid fa-bolt text-yellow-400"></i> Trả lời nhanh + cộng thêm điểm</span>
         </div>
 
-        <!-- CHỈ HIỂN THỊ NỘI DUNG CÂU HỎI -->
+        <!-- CÂU HỎI -->
         <h2 id="admin-q-text" class="text-3xl font-extrabold mb-8 text-white leading-relaxed">Nội dung câu hỏi...</h2>
 
-        <!-- Khung đáp án A, B, C, D (Ẩn khi đang đếm 3s chuẩn bị) -->
+        <!-- Khung đáp án A, B, C, D -->
         <div id="options-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <div id="card-A" class="p-4 bg-red-500/20 border border-red-500/30 rounded-2xl text-lg font-semibold flex items-center justify-between text-left transition-all">
             <div class="flex items-center gap-4">
@@ -339,7 +339,7 @@
           <span id="player-timer" class="text-sm font-bold text-amber-400"><i class="fa-regular fa-clock"></i> 15s</span>
         </div>
 
-        <!-- THÔNG BÁO NHẮC NHỞ HIỂN THỊ TRÊN MÀN HÌNH HỌC SINH CÙNG ĐỒNG HỒ CÁT 3S -->
+        <!-- THÔNG BÁO NHẮC NHỞ ĐỌC ĐỀ KÈM ĐỒNG HỒ CÁT 3S -->
         <div id="player-read-box" class="p-8 bg-purple-900/40 border-2 border-purple-500/50 rounded-2xl text-center mb-4 shadow-xl">
           <i class="fa-solid fa-hourglass-start text-5xl text-yellow-400 mb-3 animate-spin"></i>
           <h3 class="text-lg font-bold text-white mb-2">HÃY NHÌN LÊN MÀN HÌNH MÁY CHIẾU ĐỂ ĐỌC CÂU HỎI!</h3>
@@ -436,7 +436,6 @@
       msg.innerText = "⏳ Đang xác thực mã bảo mật & tải đề...";
 
       try {
-        // Gửi mã pin về Google Sheet để đối chiếu với ô H2
         const res = await fetch(`${url}?pin=${encodeURIComponent(pin)}`);
         const data = await res.json();
 
