@@ -118,12 +118,20 @@
       </div>
 
       <!-- HIỂN THỊ CÂU HỎI MÁY CHIẾU -->
-      <div id="admin-game" class="glass rounded-3xl p-8 shadow-2xl hidden text-center">
+      <div id="admin-game" class="glass rounded-3xl p-8 shadow-2xl hidden text-center relative pt-12">
+        
+        <!-- ĐỒNG HỒ PHÓNG TO NỔI BẬT Ở NGOÀI BÊN TRÊN -->
+        <div class="absolute -top-7 left-1/2 transform -translate-x-1/2 bg-slate-900 border-2 border-amber-400/60 text-amber-300 px-8 py-2.5 rounded-full shadow-2xl flex items-center gap-3">
+          <i class="fa-solid fa-clock text-2xl text-amber-400"></i>
+          <span id="admin-timer" class="text-3xl font-black tracking-wider">15</span>
+          <span class="text-sm font-bold text-amber-200/80">giây</span>
+        </div>
+
         <div class="flex justify-between items-center mb-6">
-          <span id="admin-q-number" class="bg-purple-500/20 text-purple-300 text-lg font-bold px-6 py-2 rounded-full border border-purple-500/30">Câu 1</span>
-          <div class="text-2xl font-black text-amber-400 flex items-center gap-2">
-            <i class="fa-solid fa-stopwatch animate-spin"></i> <span id="admin-timer">15</span>s
-          </div>
+          <span id="admin-q-number" class="bg-purple-500/20 text-purple-300 text-sm font-bold px-5 py-1.5 rounded-full border border-purple-500/30">
+            Câu 1
+          </span>
+          <span class="text-xs text-purple-300/80 italic"><i class="fa-solid fa-bolt text-yellow-400"></i> Trả lời nhanh + cộng thêm điểm</span>
         </div>
 
         <h2 id="admin-q-text" class="text-3xl font-extrabold mb-6 text-white leading-relaxed">Nội dung câu hỏi...</h2>
@@ -246,11 +254,21 @@
           <span id="player-timer" class="text-sm font-bold text-amber-400"><i class="fa-regular fa-clock"></i> 15s</span>
         </div>
 
-        <div class="grid grid-cols-2 gap-3 mb-4">
+        <!-- Các nút chọn đáp án -->
+        <div id="player-options-box" class="grid grid-cols-2 gap-3 mb-4">
           <button onclick="playerSelectOption('A')" class="opt-btn bg-red-600 active:bg-red-700 p-6 rounded-2xl text-3xl font-black shadow-lg">A</button>
           <button onclick="playerSelectOption('B')" class="opt-btn bg-blue-600 active:bg-blue-700 p-6 rounded-2xl text-3xl font-black shadow-lg">B</button>
           <button onclick="playerSelectOption('C')" class="opt-btn bg-amber-500 active:bg-amber-600 p-6 rounded-2xl text-3xl font-black shadow-lg">C</button>
           <button onclick="playerSelectOption('D')" class="opt-btn bg-green-600 active:bg-green-700 p-6 rounded-2xl text-3xl font-black shadow-lg">D</button>
+        </div>
+
+        <!-- Khung thông báo khi đã bấm chọn -->
+        <div id="player-answered-box" class="hidden p-6 bg-slate-900/90 border border-purple-500/40 rounded-2xl text-center mb-4">
+          <i class="fa-solid fa-hourglass-half text-4xl text-amber-400 mb-3 animate-spin"></i>
+          <h3 id="player-chosen-text" class="text-xl font-bold text-emerald-400 mb-1">Đã ghi nhận đáp án!</h3>
+          <p class="text-sm font-semibold text-purple-200 animate-pulse mt-2">
+            " Hãy cùng chờ đợi kết quả nào ...."
+          </p>
         </div>
 
         <p id="player-status-msg" class="text-center text-sm font-semibold text-amber-400 italic min-h-[20px]">Hãy chọn 1 đáp án!</p>
@@ -274,6 +292,7 @@
     let currentQIndex = 0;
     let timeLimit = 15;
     let timerInterval = null;
+    let currentTimerValue = 15;
     let myPlayerName = '';
     let peer = null;
     let roomCode = '';
@@ -348,7 +367,8 @@
               else if (data.type === 'SUBMIT_ANSWER') {
                 const currentQ = questions[data.qIndex];
                 if (currentQ && data.selected === currentQ.correct && players[conn.peer]) {
-                  players[conn.peer].score += 10;
+                  const speedBonus = data.timeLeft || 0;
+                  players[conn.peer].score += (10 + speedBonus);
                 }
                 if (currentAnswersCount[data.selected] !== undefined) {
                   currentAnswersCount[data.selected]++;
@@ -514,6 +534,10 @@
             currentQIndex = data.qIndex;
             playerHasAnswered = false;
 
+            // Reset màn hình trả lời câu hỏi mới
+            document.getElementById('player-options-box').classList.remove('hidden');
+            document.getElementById('player-answered-box').classList.add('hidden');
+
             document.getElementById('player-q-progress').innerText = `Câu ${data.qIndex + 1}`;
             document.getElementById('player-status-msg').innerText = 'Hãy chọn 1 đáp án!';
             document.getElementById('player-status-msg').className = 'text-center text-sm font-semibold text-amber-400 italic min-h-[20px]';
@@ -521,18 +545,17 @@
             const btns = document.querySelectorAll('.opt-btn');
             btns.forEach(b => b.disabled = false);
 
-            let timeLeft = data.timeLimit;
-            document.getElementById('player-timer').innerText = `${timeLeft}s`;
+            currentTimerValue = data.timeLimit;
+            document.getElementById('player-timer').innerText = `${currentTimerValue}s`;
 
             clearInterval(timerInterval);
             timerInterval = setInterval(() => {
-              timeLeft--;
-              document.getElementById('player-timer').innerText = `${timeLeft}s`;
-              if (timeLeft <= 0) {
+              currentTimerValue--;
+              document.getElementById('player-timer').innerText = `${currentTimerValue}s`;
+              if (currentTimerValue <= 0) {
                 clearInterval(timerInterval);
                 disablePlayerButtons();
                 
-                // HIỂN THỊ THÔNG BÁO NẾU HẾT GIỜ MÀ CHƯA CHỌN
                 if (!playerHasAnswered) {
                   const statusMsg = document.getElementById('player-status-msg');
                   statusMsg.innerText = '⌛ Hết giờ! Bạn chưa chọn câu hỏi nào';
@@ -558,16 +581,20 @@
       playerHasAnswered = true;
       disablePlayerButtons();
 
-      const statusMsg = document.getElementById('player-status-msg');
-      statusMsg.innerText = `✅ Đã chọn đáp án ${opt}!`;
-      statusMsg.className = 'text-center text-sm font-bold text-emerald-400 italic min-h-[20px]';
+      // Mở bảng thông báo "Hãy cùng chờ đợi kết quả nào ...."
+      document.getElementById('player-options-box').classList.add('hidden');
+      document.getElementById('player-answered-box').classList.remove('hidden');
+      document.getElementById('player-chosen-text').innerText = `✅ Đã chọn đáp án: ${opt}`;
+
+      document.getElementById('player-status-msg').innerText = '';
 
       if (playerConn && playerConn.open) {
         playerConn.send({
           type: 'SUBMIT_ANSWER',
           name: myPlayerName,
           qIndex: currentQIndex,
-          selected: opt
+          selected: opt,
+          timeLeft: currentTimerValue
         });
       }
     }
