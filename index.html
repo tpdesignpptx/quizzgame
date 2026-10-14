@@ -100,7 +100,7 @@
       </div>
 
       <!-- CHỜ HỌC SINH -->
-      <div id="admin-lobby" class="glass rounded-3xl p-8 text-center shadow-2xl hidden">
+      <div id="admin-lobby" class="glass rounded-3xl p-8 text-center shadow-2xl hidden relative">
         <div class="flex flex-col md:flex-row items-center justify-between gap-8 mb-8 border-b border-white/10 pb-8">
           <div class="text-left">
             <span class="bg-purple-500/20 text-purple-300 px-4 py-1.5 rounded-full text-sm font-semibold border border-purple-500/30">Mã Phòng</span>
@@ -114,9 +114,17 @@
 
         <div class="mb-8">
           <div class="flex justify-between items-center mb-4">
-            <h3 class="text-xl font-bold flex items-center gap-2"><i class="fa-solid fa-users text-purple-400"></i> Học sinh đã vào:</h3>
-            <span id="player-count" class="bg-pink-500/20 text-pink-300 text-lg font-bold px-4 py-1 rounded-full border border-pink-500/30">0 Người</span>
+            <h3 class="text-xl font-bold flex items-center gap-2">
+              <i class="fa-solid fa-users text-purple-400"></i> Học sinh đã vào:
+            </h3>
+            <div class="flex items-center gap-2">
+              <span id="player-count" class="bg-pink-500/20 text-pink-300 text-lg font-bold px-4 py-1 rounded-full border border-pink-500/30">0 Người</span>
+              <button onclick="togglePlayerModal(true)" class="bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-1.5 transition-all shadow-md">
+                <i class="fa-solid fa-list-check"></i> Xem chi tiết
+              </button>
+            </div>
           </div>
+
           <div id="player-list" class="flex flex-wrap gap-3 max-h-48 overflow-y-auto p-4 bg-black/20 rounded-2xl border border-white/5 justify-center">
             <span class="text-gray-500 italic">Đang kết nối Server và tạo mã QR...</span>
           </div>
@@ -127,10 +135,29 @@
         </button>
       </div>
 
+      <!-- MODAL DANH SÁCH CHI TIẾT VÀ LOẠI NGƯỜI CHƠI -->
+      <div id="player-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-3xl p-6 shadow-2xl relative">
+          <button onclick="togglePlayerModal(false)" class="absolute top-4 right-4 text-gray-400 hover:text-white text-2xl font-bold">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+          
+          <h3 class="text-xl font-bold text-purple-300 mb-4 flex items-center gap-2">
+            <i class="fa-solid fa-users-gear text-purple-400"></i> Quản Lý Danh Sách Học Sinh (<span id="modal-player-count">0</span>)
+          </h3>
+
+          <div class="mb-4">
+            <input type="text" id="searchPlayerInput" onkeyup="filterPlayerList()" placeholder="Tìm tên học sinh..." class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-purple-400">
+          </div>
+
+          <div id="modal-player-list" class="max-h-80 overflow-y-auto divide-y divide-slate-800 border border-slate-800 rounded-xl p-2 bg-slate-950/50">
+            <!-- Render danh sách chi tiết ở đây -->
+          </div>
+        </div>
+      </div>
+
       <!-- HIỂN THỊ CÂU HỎI MÁY CHIẾU -->
       <div id="admin-game" class="glass rounded-3xl p-8 shadow-2xl hidden text-center relative pt-12">
-        
-        <!-- ĐỒNG HỒ PHÓNG TO NỔI BẬT NẰM Ở NGOÀI BÊN TRÊN -->
         <div class="absolute -top-7 left-1/2 transform -translate-x-1/2 bg-slate-900 border-2 border-amber-400/60 text-amber-300 px-8 py-2.5 rounded-full shadow-2xl flex items-center gap-3">
           <i class="fa-solid fa-clock text-2xl text-amber-400"></i>
           <span id="admin-timer" class="text-3xl font-black tracking-wider">15</span>
@@ -316,8 +343,8 @@
 
       <div id="player-end" class="bg-slate-800 border border-slate-700 rounded-3xl p-8 text-center shadow-2xl hidden">
         <i class="fa-solid fa-flag-checkered text-5xl text-purple-400 mb-4"></i>
-        <h2 class="text-2xl font-extrabold mb-2">ĐÃ HOÀN THÀNH!</h2>
-        <p class="text-gray-400 text-sm">Xem kết quả vinh danh trên màn hình máy chiếu!</p>
+        <h2 id="player-end-title" class="text-2xl font-extrabold mb-2">ĐÃ HOÀN THÀNH!</h2>
+        <p id="player-end-desc" class="text-gray-400 text-sm">Xem kết quả vinh danh trên màn hình máy chiếu!</p>
       </div>
     </div>
 
@@ -326,7 +353,7 @@
   <script>
     let currentRole = '';
     let questions = [];
-    let players = {}; 
+    let players = {}; // { connId: { name, score, conn } }
     let adminConns = []; 
     let playerConn = null; 
     let currentQIndex = 0;
@@ -402,16 +429,14 @@
 
             conn.on('data', (data) => {
               if (data.type === 'PLAYER_JOIN') {
-                players[conn.peer] = { name: data.name, score: 0 };
+                players[conn.peer] = { name: data.name, score: 0, conn: conn };
                 renderPlayerList();
               }
               else if (data.type === 'SUBMIT_ANSWER') {
                 const currentQ = questions[data.qIndex];
-                let pointsAdded = 0;
                 if (currentQ && data.selected === currentQ.correct && players[conn.peer]) {
                   const speedBonus = data.timeLeft || 0;
-                  pointsAdded = 10 + speedBonus;
-                  players[conn.peer].score += pointsAdded;
+                  players[conn.peer].score += (10 + speedBonus);
                 }
                 if (currentAnswersCount[data.selected] !== undefined) {
                   currentAnswersCount[data.selected]++;
@@ -434,17 +459,68 @@
     }
 
     function renderPlayerList() {
-      const playerNames = Object.values(players).map(p => p.name);
-      document.getElementById('player-count').innerText = `${playerNames.length} Người`;
+      const playerList = Object.entries(players);
+      document.getElementById('player-count').innerText = `${playerList.length} Người`;
+      document.getElementById('modal-player-count').innerText = playerList.length;
+
       const container = document.getElementById('player-list');
+      const modalContainer = document.getElementById('modal-player-list');
       
-      if (playerNames.length === 0) {
+      if (playerList.length === 0) {
         container.innerHTML = `<span class="text-gray-500 italic">Đang chờ học sinh quét mã...</span>`;
+        modalContainer.innerHTML = `<p class="text-gray-500 italic text-center py-4">Chưa có học sinh nào vào phòng</p>`;
         return;
       }
-      container.innerHTML = playerNames.map(name => 
-        `<span class="bg-purple-500/20 text-purple-200 px-4 py-1.5 rounded-full border border-purple-500/30 font-semibold text-sm animate-pulse">${name}</span>`
+
+      // Render tóm tắt trên màn hình chờ
+      container.innerHTML = playerList.map(([id, p]) => 
+        `<span class="bg-purple-500/20 text-purple-200 px-4 py-1.5 rounded-full border border-purple-500/30 font-semibold text-sm animate-pulse">${p.name}</span>`
       ).join('');
+
+      // Render chi tiết trong Modal quản lý (kèm nút Loại)
+      renderModalPlayerList(playerList);
+    }
+
+    function renderModalPlayerList(playerList) {
+      const modalContainer = document.getElementById('modal-player-list');
+      modalContainer.innerHTML = playerList.map(([id, p]) => `
+        <div class="flex items-center justify-between p-3 hover:bg-slate-800/60 transition-all rounded-lg">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 bg-purple-600/30 text-purple-300 rounded-full flex items-center justify-center font-bold text-sm">
+              ${p.name.charAt(0).toUpperCase()}
+            </div>
+            <span class="font-semibold text-gray-200">${p.name}</span>
+          </div>
+          <button onclick="kickPlayer('${id}')" class="bg-red-500/20 hover:bg-red-500 text-red-300 hover:text-white border border-red-500/30 px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1">
+            <i class="fa-solid fa-user-xmark"></i> Loại
+          </button>
+        </div>
+      `).join('');
+    }
+
+    function togglePlayerModal(show) {
+      const modal = document.getElementById('player-modal');
+      if (show) modal.classList.remove('hidden');
+      else modal.classList.add('hidden');
+    }
+
+    function filterPlayerList() {
+      const query = document.getElementById('searchPlayerInput').value.toLowerCase();
+      const filtered = Object.entries(players).filter(([id, p]) => p.name.toLowerCase().includes(query));
+      renderModalPlayerList(filtered);
+    }
+
+    // Nút Loại học sinh ra khỏi phòng
+    function kickPlayer(peerId) {
+      if (players[peerId]) {
+        if (players[peerId].conn && players[peerId].conn.open) {
+          // Gửi thông báo loại đến điện thoại học sinh
+          players[peerId].conn.send({ type: 'KICKED' });
+          players[peerId].conn.close();
+        }
+        delete players[peerId];
+        renderPlayerList();
+      }
     }
 
     function broadcastToPlayers(data) {
@@ -470,7 +546,6 @@
       currentAnswersCount = { A: 0, B: 0, C: 0, D: 0 };
       document.getElementById('chart-container').classList.add('hidden');
 
-      // Reset lại giao diện đáp án
       ['A', 'B', 'C', 'D'].forEach(opt => {
         const card = document.getElementById(`card-${opt}`);
         const icon = document.getElementById(`icon-${opt}`);
@@ -512,7 +587,6 @@
       }, 1000);
     }
 
-    // Hiển thị đáp án đúng / sai trên màn hình Quản trị khi hết giờ
     function revealAdminAnswers() {
       const currentQ = questions[currentQIndex];
       const correctOpt = currentQ.correct;
@@ -533,13 +607,11 @@
         }
       });
 
-      // Phát tín hiệu thông báo kết quả Đúng/Sai tới toàn bộ điện thoại học sinh
       broadcastToPlayers({
         type: 'REVEAL_RESULT',
         correctOption: correctOpt
       });
 
-      // Hiển thị biểu đồ cột thống kê
       showAnswersChart();
     }
 
@@ -623,7 +695,6 @@
             playerHasAnswered = false;
             mySelectedOption = '';
 
-            // Reset màn hình học sinh cho câu mới
             document.getElementById('player-options-box').classList.remove('hidden');
             document.getElementById('player-answered-box').classList.add('hidden');
             document.getElementById('player-result-box').classList.add('hidden');
@@ -655,7 +726,6 @@
             }, 1000);
           }
           else if (data.type === 'REVEAL_RESULT') {
-            // Hiển thị kết quả ĐÚNG / SAI trên điện thoại học sinh khi hết giờ
             document.getElementById('player-options-box').classList.add('hidden');
             document.getElementById('player-answered-box').classList.add('hidden');
             
@@ -667,7 +737,6 @@
             resultBox.classList.remove('hidden');
 
             if (mySelectedOption === data.correctOption) {
-              // TRẢ LỜI ĐÚNG
               resultBox.className = 'p-6 bg-emerald-900/60 border-2 border-emerald-500 rounded-2xl text-center mb-4 shadow-xl';
               resultIcon.innerHTML = '<i class="fa-solid fa-circle-check text-emerald-400"></i>';
               resultTitle.innerText = 'CHÍNH XÁC!';
@@ -676,13 +745,21 @@
               const pointsEarned = 10 + (currentTimerValue > 0 ? currentTimerValue : 0);
               resultScore.innerText = `+${pointsEarned} điểm`;
             } else {
-              // TRẢ LỜI SAI HOẶC BỎ TRỐNG
               resultBox.className = 'p-6 bg-red-900/60 border-2 border-red-500 rounded-2xl text-center mb-4 shadow-xl';
               resultIcon.innerHTML = '<i class="fa-solid fa-circle-xmark text-red-400"></i>';
               resultTitle.innerText = 'RẤT TIẾC, SAI RỒI!';
               resultTitle.className = 'text-2xl font-black text-red-300';
-              resultScore.innerText = ''; // Sai không hiện điểm
+              resultScore.innerText = '';
             }
+          }
+          else if (data.type === 'KICKED') {
+            // Trường hợp học sinh bị Quản trị loại ra khỏi phòng
+            document.getElementById('player-wait').classList.add('hidden');
+            document.getElementById('player-quiz').classList.add('hidden');
+            document.getElementById('player-end').classList.remove('hidden');
+            document.getElementById('player-end-title').innerText = 'BẠN ĐÃ BỊ LOẠI!';
+            document.getElementById('player-end-title').className = 'text-2xl font-extrabold mb-2 text-red-400';
+            document.getElementById('player-end-desc').innerText = 'Bạn đã bị Quản trị viên loại ra khỏi phòng chơi này.';
           }
           else if (data.type === 'END_GAME') {
             document.getElementById('player-quiz').classList.add('hidden');
