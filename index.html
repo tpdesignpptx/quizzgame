@@ -39,8 +39,8 @@
     }
     .correct-card {
       background: rgba(34, 197, 94, 0.35) !important;
-      border: 2px solid #22c55e !important;
-      box-shadow: 0 0 25px rgba(34, 197, 94, 0.6);
+      border: 3px solid #22c55e !important;
+      box-shadow: 0 0 30px rgba(34, 197, 94, 0.7);
       transform: scale(1.02);
     }
     .wrong-card {
@@ -69,79 +69,160 @@
     }
     .animate-pulse-slow { animation: pulse-slow 2s infinite ease-in-out; }
 
-    /* ========================================================
-       CSS DẢI BĂNG VÀNG 3D VÀ BỤC VINH DANH HOÀNG GIA
-       ======================================================== */
-    .ribbon-banner {
+    /* ============ VINH DANH TOP 3 - SÂN KHẤU HOÀNG GIA ============ */
+    .podium-stage {
       position: relative;
-      display: inline-block;
-      width: 100%;
-      max-width: 260px;
-      margin-bottom: -15px;
-      z-index: 25;
-    }
-
-    .ribbon-main {
-      position: relative;
-      background: linear-gradient(180deg, #ffe066 0%, #f5af19 40%, #e65c00 100%);
-      color: #3d1400;
-      font-weight: 900;
-      padding: 12px 16px;
-      text-align: center;
-      border-radius: 4px;
-      box-shadow: 0 8px 25px rgba(230, 92, 0, 0.6), inset 0 2px 4px rgba(255, 255, 255, 0.9);
-      text-transform: uppercase;
-      letter-spacing: 1px;
       overflow: hidden;
-      border: 1px solid #ffea85;
-      text-shadow: 0 1px 0 rgba(255,255,255,0.4);
+      background:
+        radial-gradient(ellipse at 50% 0%, rgba(250, 204, 21, 0.22), transparent 55%),
+        radial-gradient(ellipse at 50% 100%, rgba(168, 85, 247, 0.25), transparent 60%),
+        rgba(15, 8, 40, 0.75);
+      border: 1px solid rgba(250, 204, 21, 0.25);
     }
 
-    /* Đuôi ruy-băng 3D gấp khúc */
-    .ribbon-main::before {
-      content: '';
+    /* Tia sáng xoay phía sau hạng nhất */
+    .podium-rays {
       position: absolute;
-      left: -12px;
-      top: 10px;
-      width: 0;
-      height: 0;
-      border-top: 18px solid #b34700;
-      border-left: 14px solid transparent;
-      z-index: -1;
+      left: 50%;
+      top: 42%;
+      width: 900px;
+      height: 900px;
+      margin-left: -450px;
+      margin-top: -450px;
+      background: repeating-conic-gradient(from 0deg, rgba(253, 224, 71, 0.16) 0deg 10deg, transparent 10deg 20deg);
+      -webkit-mask-image: radial-gradient(circle, #000 0%, transparent 62%);
+      mask-image: radial-gradient(circle, #000 0%, transparent 62%);
+      animation: raysSpin 40s linear infinite;
+      pointer-events: none;
     }
-    .ribbon-main::after {
-      content: '';
+    @keyframes raysSpin { to { transform: rotate(360deg); } }
+
+    /* Sao lấp lánh nền */
+    .podium-star {
       position: absolute;
-      right: -12px;
-      top: 10px;
-      width: 0;
-      height: 0;
-      border-top: 18px solid #b34700;
-      border-right: 14px solid transparent;
-      z-index: -1;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #fde68a;
+      box-shadow: 0 0 10px 2px rgba(253, 230, 138, 0.9);
+      animation: twinkle 3s infinite ease-in-out;
+      pointer-events: none;
+    }
+    @keyframes twinkle {
+      0%, 100% { opacity: 0.15; transform: scale(0.6); }
+      50% { opacity: 1; transform: scale(1.3); }
     }
 
-    /* BẠC (TOP 2) */
-    .ribbon-silver-main {
-      background: linear-gradient(180deg, #ffffff 0%, #d1d8e0 40%, #778ca3 100%);
-      color: #1e272e;
-      box-shadow: 0 8px 25px rgba(119, 140, 163, 0.5), inset 0 2px 4px rgba(255, 255, 255, 0.9);
-      border: 1px solid #ffffff;
+    .podium-title {
+      background: linear-gradient(90deg, #fde68a, #facc15, #f59e0b, #facc15, #fde68a);
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      animation: titleShine 3s linear infinite;
+      filter: drop-shadow(0 4px 12px rgba(245, 158, 11, 0.5));
     }
-    .ribbon-silver-main::before { border-top-color: #4b6584; }
-    .ribbon-silver-main::after { border-top-color: #4b6584; }
+    @keyframes titleShine { to { background-position: 200% center; } }
 
-    /* ĐỒNG (TOP 3) */
-    .ribbon-bronze-main {
-      background: linear-gradient(180deg, #f8a5c2 0%, #e77f67 40%, #782819 100%);
+    /* Mỗi cột: trượt lên theo thứ tự 3 -> 2 -> 1 để tạo hồi hộp */
+    .podium-col {
+      opacity: 0;
+      transform: translateY(80px) scale(0.9);
+    }
+    .podium-play .podium-col {
+      animation: podiumRise 0.9s cubic-bezier(0.2, 0.9, 0.3, 1.15) forwards;
+    }
+    .podium-play #col-top3 { animation-delay: 0.3s; }
+    .podium-play #col-top2 { animation-delay: 1.4s; }
+    .podium-play #col-top1 { animation-delay: 2.6s; }
+    @keyframes podiumRise {
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* Avatar tròn chữ cái đầu */
+    .p-avatar {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 9999px;
+      font-weight: 900;
+      color: #fff;
+      text-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+    }
+    .p-avatar-1 {
+      width: 104px; height: 104px; font-size: 3rem;
+      background: radial-gradient(circle at 30% 25%, #fde047, #f59e0b 60%, #b45309);
+      border: 5px solid #fff7c2;
+      box-shadow: 0 0 0 4px rgba(250, 204, 21, 0.4), 0 0 45px rgba(250, 204, 21, 0.85);
+      animation: avatarGlow 2s infinite ease-in-out;
+    }
+    .p-avatar-2 {
+      width: 80px; height: 80px; font-size: 2.2rem;
+      background: radial-gradient(circle at 30% 25%, #f1f5f9, #94a3b8 60%, #475569);
+      border: 4px solid #ffffff;
+      box-shadow: 0 0 0 3px rgba(226, 232, 240, 0.35), 0 0 28px rgba(203, 213, 225, 0.7);
+    }
+    .p-avatar-3 {
+      width: 72px; height: 72px; font-size: 2rem;
+      background: radial-gradient(circle at 30% 25%, #fdba74, #ea580c 60%, #7c2d12);
+      border: 4px solid #fed7aa;
+      box-shadow: 0 0 0 3px rgba(251, 146, 60, 0.35), 0 0 26px rgba(234, 88, 12, 0.65);
+    }
+    @keyframes avatarGlow {
+      0%, 100% { box-shadow: 0 0 0 4px rgba(250, 204, 21, 0.4), 0 0 35px rgba(250, 204, 21, 0.7); }
+      50% { box-shadow: 0 0 0 8px rgba(250, 204, 21, 0.25), 0 0 65px rgba(250, 204, 21, 1); }
+    }
+
+    /* Huy hiệu hạng nhỏ gắn góc avatar */
+    .p-badge {
+      position: absolute;
+      bottom: -6px;
+      right: -6px;
+      width: 30px; height: 30px;
+      border-radius: 9999px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.85rem; font-weight: 900;
+      border: 2px solid #fff;
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.5);
+    }
+
+    /* Bảng tên */
+    .name-plate {
+      position: relative;
+      overflow: hidden;
+      margin-top: 14px;
+      width: 100%;
+      max-width: 230px;
+      padding: 8px 14px;
+      border-radius: 14px;
+      text-align: center;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      z-index: 5;
+    }
+    .name-plate-1 {
+      background: linear-gradient(180deg, #fff3a8 0%, #facc15 45%, #d97706 100%);
+      color: #3d1c00;
+      border: 2px solid #fffbd1;
+      box-shadow: 0 8px 24px rgba(245, 158, 11, 0.6), inset 0 2px 3px rgba(255, 255, 255, 0.9);
+      font-size: 1.15rem;
+    }
+    .name-plate-2 {
+      background: linear-gradient(180deg, #ffffff 0%, #cbd5e1 50%, #64748b 100%);
+      color: #0f172a;
+      border: 2px solid #ffffff;
+      box-shadow: 0 8px 22px rgba(148, 163, 184, 0.5), inset 0 2px 3px rgba(255, 255, 255, 0.9);
+      font-size: 1rem;
+    }
+    .name-plate-3 {
+      background: linear-gradient(180deg, #fed7aa 0%, #f97316 50%, #7c2d12 100%);
       color: #2c0b05;
-      box-shadow: 0 8px 25px rgba(120, 40, 25, 0.5), inset 0 2px 4px rgba(255, 255, 255, 0.8);
-      border: 1px solid #f8a5c2;
+      border: 2px solid #fed7aa;
+      box-shadow: 0 8px 22px rgba(234, 88, 12, 0.5), inset 0 2px 3px rgba(255, 255, 255, 0.8);
+      font-size: 1rem;
     }
-    .ribbon-bronze-main::before { border-top-color: #501b11; }
-    .ribbon-bronze-main::after { border-top-color: #501b11; }
-
-    /* Vệt sáng ánh kim lướt qua */
     .shimmer-effect::after {
       content: '';
       position: absolute;
@@ -149,42 +230,79 @@
       left: -80%;
       width: 60%;
       height: 200%;
-      background: linear-gradient(
-        to right,
-        rgba(255,255,255,0) 0%,
-        rgba(255,255,255,0.85) 50%,
-        rgba(255,255,255,0) 100%
-      );
+      background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.85) 50%, rgba(255,255,255,0) 100%);
       transform: rotate(25deg);
-      animation: passShimmer 2.2s infinite;
+      animation: passShimmer 2.4s infinite;
     }
     @keyframes passShimmer {
       0% { left: -80%; }
       100% { left: 150%; }
     }
 
-    /* Bục đứng 3D */
+    /* Bục đứng */
+    .podium-block {
+      position: relative;
+      width: 100%;
+      margin-top: 12px;
+      border-radius: 18px 18px 0 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .podium-block::before { /* ánh sáng bóng phía trên */
+      content: '';
+      position: absolute;
+      inset: 0 0 auto 0;
+      height: 45%;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.35), transparent);
+      pointer-events: none;
+    }
     .podium-box-1 {
-      background: linear-gradient(180deg, #f5af19 0%, #e65c00 70%, #993d00 100%);
+      height: 230px;
+      background: linear-gradient(180deg, #fbbf24 0%, #e65c00 70%, #8a3500 100%);
       border-top: 4px solid #fff3a8;
-      box-shadow: 0 15px 35px rgba(245, 175, 25, 0.4), inset 0 4px 10px rgba(255, 255, 255, 0.5);
+      box-shadow: 0 -8px 40px rgba(250, 204, 21, 0.45), inset 0 4px 10px rgba(255, 255, 255, 0.5);
     }
     .podium-box-2 {
-      background: linear-gradient(180deg, #bdc3c7 0%, #2c3e50 80%, #1a252f 100%);
+      height: 165px;
+      background: linear-gradient(180deg, #cbd5e1 0%, #475569 75%, #1e293b 100%);
       border-top: 4px solid #ffffff;
-      box-shadow: 0 15px 35px rgba(189, 195, 199, 0.3), inset 0 4px 10px rgba(255, 255, 255, 0.5);
+      box-shadow: 0 -6px 30px rgba(203, 213, 225, 0.35), inset 0 4px 10px rgba(255, 255, 255, 0.5);
     }
     .podium-box-3 {
-      background: linear-gradient(180deg, #e77f67 0%, #782819 80%, #3e120a 100%);
-      border-top: 4px solid #f8a5c2;
-      box-shadow: 0 15px 35px rgba(120, 40, 25, 0.3), inset 0 4px 10px rgba(255, 255, 255, 0.4);
+      height: 130px;
+      background: linear-gradient(180deg, #fb923c 0%, #9a3412 75%, #431407 100%);
+      border-top: 4px solid #fed7aa;
+      box-shadow: 0 -6px 30px rgba(234, 88, 12, 0.35), inset 0 4px 10px rgba(255, 255, 255, 0.4);
+    }
+    .podium-rank-num {
+      font-weight: 900;
+      line-height: 1;
+      text-shadow: 0 3px 0 rgba(0, 0, 0, 0.25), 0 0 18px rgba(255, 255, 255, 0.35);
+    }
+    .podium-floor {
+      height: 10px;
+      background: linear-gradient(90deg, transparent, rgba(250, 204, 21, 0.6), transparent);
+      filter: blur(4px);
+    }
+
+    @media (max-width: 640px) {
+      .p-avatar-1 { width: 76px; height: 76px; font-size: 2.2rem; }
+      .p-avatar-2 { width: 58px; height: 58px; font-size: 1.6rem; }
+      .p-avatar-3 { width: 52px; height: 52px; font-size: 1.4rem; }
+      .podium-box-1 { height: 180px; }
+      .podium-box-2 { height: 130px; }
+      .podium-box-3 { height: 100px; }
+      .name-plate { font-size: 0.7rem !important; padding: 6px 6px; }
     }
   </style>
 </head>
 
 <body class="flex items-center justify-center p-4 min-h-screen">
 
-  <div class="w-full max-w-4xl">
+  <div class="w-full max-w-5xl">
 
     <!-- CHỌN VAI TRÒ -->
     <div id="role-selector" class="glass rounded-3xl p-8 text-center max-w-lg mx-auto shadow-2xl">
@@ -215,7 +333,6 @@
           <input type="number" id="timeLimit" value="15" min="5" max="60" class="w-full bg-white/5 border border-purple-500/30 rounded-xl px-4 py-3 text-xl text-center text-white focus:outline-none focus:border-purple-400">
         </div>
 
-        <!-- BẢO MẬT: NHẬP MÃ 6 CHỮ SỐ (ĐỐI CHIẾU CỘT H2 GOOGLE SHEET) -->
         <div class="text-left mb-4">
           <label class="block text-sm font-medium text-purple-200 mb-2">Mã bảo mật tải đề (6 chữ số ở ô H2):</label>
           <input type="password" id="pinCode" maxlength="6" placeholder="Nhập 6 số bảo mật..." class="w-full bg-white/5 border border-purple-500/30 rounded-xl px-4 py-3 text-center text-xl text-yellow-400 font-bold tracking-widest focus:outline-none focus:border-purple-400">
@@ -232,7 +349,7 @@
         <p id="setup-msg" class="text-sm mt-3 text-amber-400 font-semibold"></p>
       </div>
 
-      <!-- CHỜ HỌC SINH -->
+      <!-- CHỜ HỌC SINH (LOBBY) -->
       <div id="admin-lobby" class="glass rounded-3xl p-8 text-center shadow-2xl hidden relative">
         <div class="flex flex-col md:flex-row items-center justify-between gap-8 mb-8 border-b border-white/10 pb-8">
           <div class="text-left">
@@ -240,8 +357,13 @@
             <h2 id="room-code" class="text-6xl font-black tracking-wider text-yellow-400 mt-2">----</h2>
             <p class="text-gray-400 mt-2">Đã tải <span id="loaded-q-count" class="text-green-400 font-bold">0</span> câu hỏi từ Google Sheet!</p>
           </div>
-          <div class="p-4 bg-white rounded-2xl shadow-xl">
+          
+          <!-- BẤM VÀO KHUNG QR ĐỂ PHÓNG TO TOÀN MÀN HÌNH -->
+          <div onclick="toggleQRModal(true)" class="p-4 bg-white rounded-2xl shadow-xl cursor-pointer hover:scale-105 transition-all group relative">
             <div id="qrcode"></div>
+            <div class="absolute inset-0 bg-purple-900/40 opacity-0 group-hover:opacity-100 transition-all rounded-2xl flex items-center justify-center text-white font-bold text-xs gap-1">
+              <i class="fa-solid fa-expand text-lg"></i> Bấm để phóng to
+            </div>
           </div>
         </div>
 
@@ -268,6 +390,24 @@
         </button>
       </div>
 
+      <!-- MODAL PHÓNG TO MÃ QR TOÀN MÀN HÌNH -->
+      <div id="qr-modal" class="fixed inset-0 bg-black/90 backdrop-blur-lg hidden z-50 flex items-center justify-center p-4 cursor-pointer" onclick="toggleQRModal(false)">
+        <div class="bg-slate-900/90 border-2 border-purple-500/60 p-8 rounded-3xl text-center shadow-2xl relative max-w-lg w-full" onclick="event.stopPropagation()">
+          <button onclick="toggleQRModal(false)" class="absolute top-4 right-4 text-gray-400 hover:text-white text-3xl font-bold">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+          
+          <span class="bg-purple-500/20 text-purple-300 px-4 py-1 rounded-full text-sm font-semibold border border-purple-500/30">QUÉT MÃ ĐỂ VÀO PHÒNG CHƠI</span>
+          <h2 id="modal-room-code" class="text-6xl font-black tracking-wider text-yellow-400 my-4">----</h2>
+
+          <div class="p-6 bg-white rounded-3xl shadow-2xl inline-block mx-auto mb-4 border-4 border-yellow-400">
+            <div id="modal-qrcode"></div>
+          </div>
+
+          <p class="text-gray-300 font-medium">Bấm bất kỳ đâu để đóng lại</p>
+        </div>
+      </div>
+
       <!-- MODAL DANH SÁCH CHI TIẾT VÀ LOẠI NGƯỜI CHƠI -->
       <div id="player-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md hidden z-50 flex items-center justify-center p-4">
         <div class="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-3xl p-6 shadow-2xl relative">
@@ -289,91 +429,91 @@
         </div>
       </div>
 
-      <!-- HIỂN THỊ CÂU HỎI MÁY CHIẾU -->
-      <div id="admin-game" class="glass rounded-3xl p-8 shadow-2xl hidden text-center relative pt-12">
+      <!-- HIỂN THỊ CÂU HỎI MÁY CHIẾU (CHỮ CÂU HỎI & ĐÁP ÁN BỰ CỰC ĐẠI) -->
+      <div id="admin-game" class="glass rounded-3xl p-8 md:p-12 shadow-2xl hidden text-center relative pt-16">
         
         <!-- ĐỒNG HỒ ĐẾM NGƯỢC THỜI GIAN -->
-        <div id="admin-timer-box" class="absolute -top-7 left-1/2 transform -translate-x-1/2 bg-slate-900 border-2 border-amber-400/60 text-amber-300 px-8 py-2.5 rounded-full shadow-2xl flex items-center gap-3">
-          <i id="admin-timer-icon" class="fa-solid fa-clock text-2xl text-amber-400"></i>
-          <span id="admin-timer" class="text-3xl font-black tracking-wider">15</span>
-          <span id="admin-timer-unit" class="text-sm font-bold text-amber-200/80">giây</span>
+        <div id="admin-timer-box" class="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-slate-900 border-2 border-amber-400 text-amber-300 px-10 py-3 rounded-full shadow-2xl flex items-center gap-3">
+          <i id="admin-timer-icon" class="fa-solid fa-clock text-3xl text-amber-400"></i>
+          <span id="admin-timer" class="text-4xl font-black tracking-wider">15</span>
+          <span id="admin-timer-unit" class="text-base font-bold text-amber-200">giây</span>
         </div>
 
-        <div class="flex justify-between items-center mb-6">
-          <span id="admin-q-number" class="bg-purple-500/20 text-purple-300 text-sm font-bold px-5 py-1.5 rounded-full border border-purple-500/30">
+        <div class="flex justify-between items-center mb-8">
+          <span id="admin-q-number" class="bg-purple-500/20 text-purple-300 text-lg font-extrabold px-6 py-2 rounded-full border border-purple-500/40">
             Câu 1
           </span>
-          <span id="admin-q-status" class="text-xs text-purple-300/80 italic"><i class="fa-solid fa-bolt text-yellow-400"></i> Trả lời sớm nhất nhận 100đ</span>
+          <span id="admin-q-status" class="text-sm font-bold text-purple-300/90 italic"><i class="fa-solid fa-bolt text-yellow-400"></i> Trả lời sớm nhất nhận 100đ</span>
         </div>
 
-        <!-- CÂU HỎI -->
-        <h2 id="admin-q-text" class="text-3xl font-extrabold mb-8 text-white leading-relaxed">Nội dung câu hỏi...</h2>
+        <!-- CÂU HỎI BỰ SIÊU NỔI BẬT -->
+        <h2 id="admin-q-text" class="text-3xl md:text-5xl font-black mb-10 text-white leading-snug tracking-wide">Nội dung câu hỏi...</h2>
 
-        <!-- Khung đáp án A, B, C, D -->
-        <div id="options-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <div id="card-A" class="p-4 bg-red-500/20 border border-red-500/30 rounded-2xl text-lg font-semibold flex items-center justify-between text-left transition-all">
-            <div class="flex items-center gap-4">
-              <span class="w-8 h-8 bg-red-500 text-white rounded-lg flex items-center justify-center font-bold">A</span>
+        <!-- Khung đáp án A, B, C, D (CHỮ BỰ) -->
+        <div id="options-grid" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <div id="card-A" class="p-6 bg-red-500/20 border-2 border-red-500/40 rounded-3xl text-xl md:text-2xl font-bold flex items-center justify-between text-left transition-all">
+            <div class="flex items-center gap-5">
+              <span class="w-12 h-12 bg-red-500 text-white rounded-2xl flex items-center justify-center font-black text-2xl shadow-md">A</span>
               <span id="admin-opt-A"></span>
             </div>
-            <span id="icon-A" class="text-2xl font-bold hidden"></span>
+            <span id="icon-A" class="text-3xl font-black hidden"></span>
           </div>
 
-          <div id="card-B" class="p-4 bg-blue-500/20 border border-blue-500/30 rounded-2xl text-lg font-semibold flex items-center justify-between text-left transition-all">
-            <div class="flex items-center gap-4">
-              <span class="w-8 h-8 bg-blue-500 text-white rounded-lg flex items-center justify-center font-bold">B</span>
+          <div id="card-B" class="p-6 bg-blue-500/20 border-2 border-blue-500/40 rounded-3xl text-xl md:text-2xl font-bold flex items-center justify-between text-left transition-all">
+            <div class="flex items-center gap-5">
+              <span class="w-12 h-12 bg-blue-500 text-white rounded-2xl flex items-center justify-center font-black text-2xl shadow-md">B</span>
               <span id="admin-opt-B"></span>
             </div>
-            <span id="icon-B" class="text-2xl font-bold hidden"></span>
+            <span id="icon-B" class="text-3xl font-black hidden"></span>
           </div>
 
-          <div id="card-C" class="p-4 bg-amber-500/20 border border-amber-500/30 rounded-2xl text-xl font-semibold flex items-center justify-between text-left transition-all">
-            <div class="flex items-center gap-4">
-              <span class="w-8 h-8 bg-amber-500 text-white rounded-lg flex items-center justify-center font-bold">C</span>
+          <div id="card-C" class="p-6 bg-amber-500/20 border-2 border-amber-500/40 rounded-3xl text-xl md:text-2xl font-bold flex items-center justify-between text-left transition-all">
+            <div class="flex items-center gap-5">
+              <span class="w-12 h-12 bg-amber-500 text-white rounded-2xl flex items-center justify-center font-black text-2xl shadow-md">C</span>
               <span id="admin-opt-C"></span>
             </div>
-            <span id="icon-C" class="text-2xl font-bold hidden"></span>
+            <span id="icon-C" class="text-3xl font-black hidden"></span>
           </div>
 
-          <div id="card-D" class="p-4 bg-green-500/20 border border-green-500/30 rounded-2xl text-xl font-semibold flex items-center justify-between text-left transition-all">
-            <div class="flex items-center gap-4">
-              <span class="w-8 h-8 bg-green-500 text-white rounded-lg flex items-center justify-center font-bold">D</span>
+          <div id="card-D" class="p-6 bg-green-500/20 border-2 border-green-500/40 rounded-3xl text-xl md:text-2xl font-bold flex items-center justify-between text-left transition-all">
+            <div class="flex items-center gap-5">
+              <span class="w-12 h-12 bg-green-500 text-white rounded-2xl flex items-center justify-center font-black text-2xl shadow-md">D</span>
               <span id="admin-opt-D"></span>
             </div>
-            <span id="icon-D" class="text-2xl font-bold hidden"></span>
+            <span id="icon-D" class="text-3xl font-black hidden"></span>
           </div>
         </div>
 
         <!-- KHUNG BIỂU ĐỒ THỐNG KÊ KHI HẾT GIỜ -->
-        <div id="chart-container" class="hidden mb-6 p-6 bg-black/40 rounded-2xl border border-white/10">
-          <h3 class="text-lg font-bold text-purple-300 mb-4 flex items-center justify-center gap-2">
+        <div id="chart-container" class="hidden mb-8 p-6 bg-black/40 rounded-3xl border border-white/10">
+          <h3 class="text-xl font-bold text-purple-300 mb-4 flex items-center justify-center gap-2">
             <i class="fa-solid fa-chart-column"></i> BIỂU ĐỒ THỐNG KÊ LỰA CHỌN
           </h3>
-          <div class="flex justify-around items-end h-44 border-b border-gray-600 pb-2">
+          <div class="flex justify-around items-end h-48 border-b border-gray-600 pb-2">
             <div class="flex flex-col items-center w-16">
-              <span id="count-A" class="text-xs font-bold text-gray-300 mb-1">0% (0)</span>
+              <span id="count-A" class="text-sm font-bold text-gray-200 mb-1">0% (0)</span>
               <div id="bar-A" class="bar-chart w-12 bg-red-500 rounded-t-lg h-0"></div>
-              <span class="font-bold mt-2">A</span>
+              <span class="font-bold text-lg mt-2">A</span>
             </div>
             <div class="flex flex-col items-center w-16">
-              <span id="count-B" class="text-xs font-bold text-gray-300 mb-1">0% (0)</span>
+              <span id="count-B" class="text-sm font-bold text-gray-200 mb-1">0% (0)</span>
               <div id="bar-B" class="bar-chart w-12 bg-blue-500 rounded-t-lg h-0"></div>
-              <span class="font-bold mt-2">B</span>
+              <span class="font-bold text-lg mt-2">B</span>
             </div>
             <div class="flex flex-col items-center w-16">
-              <span id="count-C" class="text-xs font-bold text-gray-300 mb-1">0% (0)</span>
+              <span id="count-C" class="text-sm font-bold text-gray-200 mb-1">0% (0)</span>
               <div id="bar-C" class="bar-chart w-12 bg-amber-500 rounded-t-lg h-0"></div>
-              <span class="font-bold mt-2">C</span>
+              <span class="font-bold text-lg mt-2">C</span>
             </div>
             <div class="flex flex-col items-center w-16">
-              <span id="count-D" class="text-xs font-bold text-gray-300 mb-1">0% (0)</span>
+              <span id="count-D" class="text-sm font-bold text-gray-200 mb-1">0% (0)</span>
               <div id="bar-D" class="bar-chart w-12 bg-green-500 rounded-t-lg h-0"></div>
-              <span class="font-bold mt-2">D</span>
+              <span class="font-bold text-lg mt-2">D</span>
             </div>
           </div>
         </div>
 
-        <button onclick="adminNextQuestion()" class="glow-btn bg-purple-600 hover:bg-purple-500 px-8 py-3.5 rounded-xl font-bold text-lg inline-flex items-center gap-2">
+        <button onclick="adminNextQuestion()" class="glow-btn bg-purple-600 hover:bg-purple-500 px-10 py-4 rounded-2xl font-black text-xl inline-flex items-center gap-3">
           Câu Tiếp Theo <i class="fa-solid fa-arrow-right"></i>
         </button>
       </div>
@@ -384,57 +524,78 @@
         <h2 class="text-3xl font-extrabold text-purple-300 animate-pulse-slow">⏳ ĐANG TẢI BẢNG XẾP HẠNG...</h2>
       </div>
 
-      <!-- VINH DANH TOP 3 VỚI DẢI BĂNG MẠ VÀNG SANG TRỌNG HOÀNG GIA -->
-      <div id="admin-podium" class="glass rounded-3xl p-8 shadow-2xl text-center hidden">
-        <h1 class="text-4xl font-black mb-8 bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-500 bg-clip-text text-transparent uppercase tracking-widest drop-shadow-lg">
-          🏆 VINH DANH TOP 3 XUẤT SẮC 🏆
-        </h1>
+      <!-- VINH DANH TOP 3 - SÂN KHẤU HOÀNG GIA -->
+      <div id="admin-podium" class="podium-stage rounded-3xl px-4 md:px-10 pt-8 pb-0 shadow-2xl text-center hidden">
+        <!-- Tia sáng + sao nền -->
+        <div class="podium-rays"></div>
+        <span class="podium-star" style="top:12%; left:8%; animation-delay:0s"></span>
+        <span class="podium-star" style="top:22%; left:90%; animation-delay:.7s"></span>
+        <span class="podium-star" style="top:55%; left:4%; animation-delay:1.4s"></span>
+        <span class="podium-star" style="top:48%; left:95%; animation-delay:2.1s"></span>
+        <span class="podium-star" style="top:8%; left:70%; animation-delay:1s"></span>
+        <span class="podium-star" style="top:14%; left:28%; animation-delay:1.8s"></span>
 
-        <div class="flex justify-center items-end gap-3 md:gap-6 my-10 h-88">
-          
-          <!-- HẠNG 2 (BÊN TRÁI) -->
-          <div class="flex flex-col items-center w-1/3">
-            <div class="ribbon-banner">
-              <div class="ribbon-main ribbon-silver-main shimmer-effect text-sm md:text-base">
-                <span id="name-top2" class="truncate block max-w-full">---</span>
+        <div class="relative z-10">
+          <p class="text-yellow-200/80 font-bold tracking-[0.4em] text-xs md:text-sm mb-2">
+            <i class="fa-solid fa-sparkles"></i> CHÚC MỪNG CÁC NHÀ VÔ ĐỊCH <i class="fa-solid fa-sparkles"></i>
+          </p>
+          <h1 class="podium-title text-3xl md:text-5xl font-black uppercase tracking-widest mb-6">
+            🏆 Vinh Danh Top 3 🏆
+          </h1>
+
+          <div class="flex justify-center items-end gap-2 md:gap-6 mt-6">
+
+            <!-- HẠNG 2 (BÊN TRÁI) -->
+            <div id="col-top2" class="podium-col flex flex-col items-center w-1/3 max-w-[250px]">
+              <div class="p-avatar p-avatar-2">
+                <span id="avatar-top2">?</span>
+                <span class="p-badge bg-slate-300 text-slate-800">2</span>
+              </div>
+              <div class="name-plate name-plate-2 shimmer-effect">
+                <span id="name-top2" class="truncate block">---</span>
+              </div>
+              <div class="podium-block podium-box-2">
+                <i class="fa-solid fa-medal text-3xl md:text-4xl text-slate-100 mb-1 drop-shadow-md"></i>
+                <span class="podium-rank-num text-5xl md:text-6xl text-white">2</span>
+                <span id="score-top2" class="text-xs md:text-sm font-extrabold mt-2 bg-black/50 px-3 py-1 rounded-full text-slate-100">0 điểm</span>
               </div>
             </div>
-            <div class="w-full podium-box-2 rounded-t-2xl h-48 flex flex-col items-center justify-center shadow-2xl">
-              <i class="fa-solid fa-medal text-4xl text-slate-100 mb-1 drop-shadow-md"></i>
-              <span class="text-4xl font-black text-white drop-shadow">2</span>
-              <span id="score-top2" class="text-xs font-bold mt-1 bg-black/50 px-3 py-1 rounded-full text-slate-200">0đ</span>
-            </div>
-          </div>
 
-          <!-- HẠNG 1 (CHÍNH GIỮA - CAO NHẤT) -->
-          <div class="flex flex-col items-center w-1/3">
-            <i class="fa-solid fa-crown text-5xl text-yellow-300 mb-2 animate-bounce drop-shadow-lg"></i>
-            <div class="ribbon-banner">
-              <div class="ribbon-main shimmer-effect text-base md:text-lg">
-                <span id="name-top1" class="truncate block max-w-full">---</span>
+            <!-- HẠNG 1 (CHÍNH GIỮA - CAO NHẤT) -->
+            <div id="col-top1" class="podium-col flex flex-col items-center w-1/3 max-w-[290px]">
+              <i class="fa-solid fa-crown text-4xl md:text-5xl text-yellow-300 mb-1 animate-bounce" style="filter: drop-shadow(0 0 14px rgba(250,204,21,.9));"></i>
+              <div class="p-avatar p-avatar-1">
+                <span id="avatar-top1">?</span>
+                <span class="p-badge bg-yellow-400 text-amber-900" style="width:36px;height:36px;font-size:1rem">1</span>
+              </div>
+              <div class="name-plate name-plate-1 shimmer-effect">
+                <span id="name-top1" class="truncate block">---</span>
+              </div>
+              <div class="podium-block podium-box-1">
+                <i class="fa-solid fa-trophy text-5xl md:text-6xl text-yellow-100 mb-1 drop-shadow-md"></i>
+                <span class="podium-rank-num text-6xl md:text-7xl text-amber-950">1</span>
+                <span id="score-top1" class="text-sm md:text-base mt-2 bg-black/60 px-4 py-1.5 rounded-full text-yellow-300 font-extrabold shadow-lg">0 điểm</span>
               </div>
             </div>
-            <div class="w-full podium-box-1 rounded-t-2xl h-64 flex flex-col items-center justify-center shadow-2xl">
-              <i class="fa-solid fa-trophy text-6xl text-yellow-100 mb-2 drop-shadow-md"></i>
-              <span class="text-5xl font-black text-amber-950 drop-shadow">1</span>
-              <span id="score-top1" class="text-sm mt-1 bg-black/60 px-4 py-1.5 rounded-full text-yellow-300 font-extrabold shadow-lg">0đ</span>
-            </div>
-          </div>
 
-          <!-- HẠNG 3 (BÊN PHẢI) -->
-          <div class="flex flex-col items-center w-1/3">
-            <div class="ribbon-banner">
-              <div class="ribbon-main ribbon-bronze-main shimmer-effect text-sm md:text-base">
-                <span id="name-top3" class="truncate block max-w-full">---</span>
+            <!-- HẠNG 3 (BÊN PHẢI) -->
+            <div id="col-top3" class="podium-col flex flex-col items-center w-1/3 max-w-[250px]">
+              <div class="p-avatar p-avatar-3">
+                <span id="avatar-top3">?</span>
+                <span class="p-badge bg-orange-400 text-orange-950">3</span>
+              </div>
+              <div class="name-plate name-plate-3 shimmer-effect">
+                <span id="name-top3" class="truncate block">---</span>
+              </div>
+              <div class="podium-block podium-box-3">
+                <i class="fa-solid fa-award text-3xl md:text-4xl text-amber-200 mb-1 drop-shadow-md"></i>
+                <span class="podium-rank-num text-4xl md:text-5xl text-amber-100">3</span>
+                <span id="score-top3" class="text-xs md:text-sm font-extrabold mt-2 bg-black/50 px-3 py-1 rounded-full text-amber-200">0 điểm</span>
               </div>
             </div>
-            <div class="w-full podium-box-3 rounded-t-2xl h-36 flex flex-col items-center justify-center shadow-2xl">
-              <i class="fa-solid fa-award text-3xl text-amber-200 mb-1 drop-shadow-md"></i>
-              <span class="text-3xl font-black text-amber-100 drop-shadow">3</span>
-              <span id="score-top3" class="text-xs font-bold mt-1 bg-black/50 px-3 py-1 rounded-full text-amber-200">0đ</span>
-            </div>
-          </div>
 
+          </div>
+          <div class="podium-floor mt-0 -mx-4 md:-mx-10"></div>
         </div>
       </div>
     </div>
@@ -586,6 +747,7 @@
 
           roomCode = Math.floor(1000 + Math.random() * 9000).toString();
           document.getElementById('room-code').innerText = roomCode;
+          document.getElementById('modal-room-code').innerText = roomCode;
 
           peer = new Peer('quiz_room_' + roomCode);
 
@@ -595,9 +757,16 @@
             const currentUrl = window.location.href.split('?')[0];
             const playerJoinUrl = `${currentUrl}?role=player&room=${roomCode}`;
             
+            // Vẽ QR nhỏ ở Lobby
             document.getElementById('qrcode').innerHTML = '';
             new QRCode(document.getElementById("qrcode"), {
-              text: playerJoinUrl, width: 180, height: 180
+              text: playerJoinUrl, width: 170, height: 170
+            });
+
+            // Vẽ QR lớn ở Modal phóng to
+            document.getElementById('modal-qrcode').innerHTML = '';
+            new QRCode(document.getElementById("modal-qrcode"), {
+              text: playerJoinUrl, width: 320, height: 320
             });
           });
 
@@ -642,6 +811,12 @@
       } catch (e) {
         msg.innerText = "❌ Lỗi kết nối Google Sheet: " + e.message;
       }
+    }
+
+    function toggleQRModal(show) {
+      const modal = document.getElementById('qr-modal');
+      if (show) modal.classList.remove('hidden');
+      else modal.classList.add('hidden');
     }
 
     function renderPlayerList() {
@@ -739,11 +914,11 @@
       ['A', 'B', 'C', 'D'].forEach(opt => {
         const card = document.getElementById(`card-${opt}`);
         const icon = document.getElementById(`icon-${opt}`);
-        card.className = `p-4 rounded-2xl text-lg font-semibold flex items-center justify-between text-left transition-all ${
-          opt === 'A' ? 'bg-red-500/20 border border-red-500/30' :
-          opt === 'B' ? 'bg-blue-500/20 border border-blue-500/30' :
-          opt === 'C' ? 'bg-amber-500/20 border border-amber-500/30' :
-          'bg-green-500/20 border border-green-500/30'
+        card.className = `p-6 rounded-3xl text-xl md:text-2xl font-bold flex items-center justify-between text-left transition-all ${
+          opt === 'A' ? 'bg-red-500/20 border-2 border-red-500/40' :
+          opt === 'B' ? 'bg-blue-500/20 border-2 border-blue-500/40' :
+          opt === 'C' ? 'bg-amber-500/20 border-2 border-amber-500/40' :
+          'bg-green-500/20 border-2 border-green-500/40'
         }`;
         icon.classList.add('hidden');
         icon.innerText = '';
@@ -763,7 +938,7 @@
       let readTimeLeft = 3;
       document.getElementById('admin-timer').innerText = readTimeLeft;
       document.getElementById('admin-timer-unit').innerText = "đọc đề";
-      document.getElementById('admin-timer-icon').className = "fa-solid fa-hourglass-start text-2xl text-amber-400 animate-spin";
+      document.getElementById('admin-timer-icon').className = "fa-solid fa-hourglass-start text-3xl text-amber-400 animate-spin";
 
       clearInterval(timerInterval);
 
@@ -790,7 +965,7 @@
       let timeLeft = timeLimit;
       document.getElementById('admin-timer').innerText = timeLeft;
       document.getElementById('admin-timer-unit').innerText = "giây";
-      document.getElementById('admin-timer-icon').className = "fa-solid fa-clock text-2xl text-amber-400";
+      document.getElementById('admin-timer-icon').className = "fa-solid fa-clock text-3xl text-amber-400";
 
       broadcastToPlayers({
         type: 'START_ANSWERING',
@@ -817,13 +992,13 @@
         icon.classList.remove('hidden');
 
         if (opt === correctOpt) {
-          card.className = 'p-4 rounded-2xl text-lg font-semibold flex items-center justify-between text-left correct-card';
+          card.className = 'p-6 rounded-3xl text-xl md:text-2xl font-bold flex items-center justify-between text-left correct-card';
           icon.innerText = '✓';
-          icon.className = 'text-2xl font-bold text-emerald-400';
+          icon.className = 'text-3xl font-black text-emerald-400';
         } else {
-          card.className = 'p-4 rounded-2xl text-lg font-semibold flex items-center justify-between text-left wrong-card bg-slate-800/40 border border-slate-700';
+          card.className = 'p-6 rounded-3xl text-xl md:text-2xl font-bold flex items-center justify-between text-left wrong-card bg-slate-800/40 border border-slate-700';
           icon.innerText = '✕';
-          icon.className = 'text-2xl font-bold text-red-400';
+          icon.className = 'text-3xl font-black text-red-400';
         }
       });
 
@@ -867,23 +1042,45 @@
 
       setTimeout(() => {
         document.getElementById('admin-loading').classList.add('hidden');
-        document.getElementById('admin-podium').classList.remove('hidden');
+        const stage = document.getElementById('admin-podium');
+        stage.classList.remove('hidden');
 
         const sorted = Object.values(players).sort((a, b) => b.score - a.score);
-        if (sorted[0]) {
-          document.getElementById('name-top1').innerText = sorted[0].name;
-          document.getElementById('score-top1').innerText = `${sorted[0].score} điểm`;
-        }
-        if (sorted[1]) {
-          document.getElementById('name-top2').innerText = sorted[1].name;
-          document.getElementById('score-top2').innerText = `${sorted[1].score} điểm`;
-        }
-        if (sorted[2]) {
-          document.getElementById('name-top3').innerText = sorted[2].name;
-          document.getElementById('score-top3').innerText = `${sorted[2].score} điểm`;
-        }
 
-        confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
+        // Đổ dữ liệu vào 3 bục; bục nào không có người thì ẩn đi
+        [1, 2, 3].forEach(rank => {
+          const p = sorted[rank - 1];
+          const col = document.getElementById(`col-top${rank}`);
+          if (p) {
+            col.style.visibility = 'visible';
+            document.getElementById(`name-top${rank}`).innerText = p.name;
+            document.getElementById(`avatar-top${rank}`).innerText = (p.name.trim().charAt(0) || '?').toUpperCase();
+            document.getElementById(`score-top${rank}`).innerText = `${p.score} điểm`;
+          } else {
+            col.style.visibility = 'hidden';
+          }
+        });
+
+        // Chạy hiệu ứng lên bục lần lượt: hạng 3 -> hạng 2 -> hạng 1
+        stage.classList.remove('podium-play');
+        void stage.offsetWidth;
+        stage.classList.add('podium-play');
+
+        // Pháo hoa nhỏ khi hạng 3 & 2 xuất hiện
+        setTimeout(() => confetti({ particleCount: 40, spread: 60, origin: { x: 0.75, y: 0.7 }, colors: ['#fb923c', '#fed7aa'] }), 900);
+        setTimeout(() => confetti({ particleCount: 50, spread: 60, origin: { x: 0.25, y: 0.7 }, colors: ['#e2e8f0', '#94a3b8'] }), 2000);
+
+        // Pháo hoa lớn khi hạng 1 xuất hiện
+        setTimeout(() => {
+          confetti({ particleCount: 180, spread: 90, origin: { y: 0.55 }, colors: ['#facc15', '#fde68a', '#f59e0b', '#ffffff'] });
+
+          const end = Date.now() + 4000;
+          (function frame() {
+            confetti({ particleCount: 4, angle: 60, spread: 55, origin: { x: 0, y: 0.8 }, colors: ['#facc15', '#fde68a', '#a855f7'] });
+            confetti({ particleCount: 4, angle: 120, spread: 55, origin: { x: 1, y: 0.8 }, colors: ['#facc15', '#fde68a', '#ec4899'] });
+            if (Date.now() < end) requestAnimationFrame(frame);
+          })();
+        }, 3100);
       }, 3500);
     }
 
