@@ -10,8 +10,8 @@
   <!-- Thư viện QRCode & Pháo hoa -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-  <!-- PeerJS kết nối mọi mạng -->
-  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <!-- MQTT.js: kết nối qua broker công cộng, dùng được mọi mạng (4G, wifi khác nhau) -->
+  <script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js"></script>
 
   <style>
     body {
@@ -696,16 +696,72 @@
     let mySelectedOption = '';
     let currentAnswersCount = { A: 0, B: 0, C: 0, D: 0 };
     
-    // Cấu hình STUN + TURN để kết nối được cả khi khác mạng (4G / wifi khác)
-    const PEER_OPTIONS = {
-      config: {
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' },
-          { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-          { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-          { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
-        ]
+    // ===== KẾT NỐI REALTIME QUA MQTT (không cần chung wifi, không cần đăng ký) =====
+    // Dùng 2 broker công cộng cùng lúc, hỏng 1 cái vẫn chạy bằng cái còn lại.
+    const MQTT_BROKERS = [
+      'wss://broker.emqx.io:8084/mqtt',
+      'wss://broker.hivemq.com:8884/mqtt'
+    ];
+    let NET_UP = '';   // học sinh -> quản trị
+    let NET_DOWN = ''; // quản trị -> học sinh
+    let answeringOpen = false;
+    let myPid = '';
+
+    function setNetTopics(code) {
+      const base = 'tpdesign-quiz-v1/' + code;
+      NET_UP = base + '/u';
+      NET_DOWN = base + '/d';
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    const Net = {
+      clients: [],
+      seen: new Set(),
+      connectedOnce: false,
+      init(subTopic, onMsg, onFirstConnect) {
+        this.close();
+        MQTT_BROKERS.forEach(url => {
+          const c = mqtt.connect(url, {
+            clientId: 'tpq_' + Math.random().toString(16).slice(2, 10),
+            clean: true,
+            reconnectPeriod: 2000,
+            connectTimeout: 8000
+          });
+          c.on('connect', () => {
+            c.subscribe(subTopic, { qos: 0 });
+            if (!this.connectedOnce) {
+              this.connectedOnce = true;
+              if (onFirstConnect) onFirstConnect();
+            }
+          });
+          c.on('message', (topic, payload) => {
+            try {
+              const m = JSON.parse(payload.toString());
+              if (m._id) {
+                if (this.seen.has(m._id)) return;
+                this.seen.add(m._id);
+                if (this.seen.size > 500) this.seen.delete(this.seen.values().next().value);
+              }
+              onMsg(m);
+            } catch (e) {}
+          });
+          c.on('error', () => {});
+          this.clients.push(c);
+        });
+      },
+      pub(topic, obj) {
+        const m = JSON.stringify(Object.assign({ _id: Math.random().toString(36).slice(2) + Date.now().toString(36) }, obj));
+        this.clients.forEach(c => { if (c.connected) c.publish(topic, m, { qos: 0 }); });
+      },
+      isConnected() { return this.clients.some(c => c.connected); },
+      close() {
+        this.clients.forEach(c => { try { c.end(true); } catch (e) {} });
+        this.clients = [];
+        this.connectedOnce = false;
+        this.seen.clear();
       }
     };
 
@@ -767,67 +823,63 @@
           document.getElementById('room-code').innerText = roomCode;
           document.getElementById('modal-room-code').innerText = roomCode;
 
-          peer = new Peer('quiz_room_' + roomCode, PEER_OPTIONS);
-
-          peer.on('open', (id) => {
-            document.getElementById('player-list').innerHTML = `<span class="text-gray-400 italic">Sẵn sàng! Hãy quét mã QR để vào phòng.</span>`;
-            
-            const currentUrl = window.location.href.split('?')[0];
-            const playerJoinUrl = `${currentUrl}?role=player&room=${roomCode}`;
-            
-            // Vẽ QR nhỏ ở Lobby
-            document.getElementById('qrcode').innerHTML = '';
-            new QRCode(document.getElementById("qrcode"), {
-              text: playerJoinUrl, width: 170, height: 170
-            });
-
-            // Vẽ QR lớn ở Modal phóng to
-            document.getElementById('modal-qrcode').innerHTML = '';
-            new QRCode(document.getElementById("modal-qrcode"), {
-              text: playerJoinUrl, width: 320, height: 320
-            });
-          });
-
-          peer.on('connection', (conn) => {
-            adminConns.push(conn);
-
-            conn.on('data', (data) => {
-              if (data.type === 'PLAYER_JOIN') {
-                players[conn.peer] = { name: data.name, score: 0, conn: conn };
-                renderPlayerList();
-              }
-              else if (data.type === 'SUBMIT_ANSWER') {
-                const currentQ = questions[data.qIndex];
-                if (currentQ && data.selected === currentQ.correct && players[conn.peer]) {
-                  correctAnswersOrder++;
-                  
-                  const totalPlayers = Object.keys(players).length || 1;
-                  const step = totalPlayers > 1 ? (90 / (totalPlayers - 1)) : 0;
-                  const points = Math.max(10, Math.round(100 - (correctAnswersOrder - 1) * step));
-                  
-                  players[conn.peer].score += points;
-                  questionPlayerScores[conn.peer] = points;
-                } else {
-                  questionPlayerScores[conn.peer] = 0;
-                }
-
-                if (currentAnswersCount[data.selected] !== undefined) {
-                  currentAnswersCount[data.selected]++;
-                }
-              }
-            });
-
-            conn.on('close', () => {
-              delete players[conn.peer];
-              renderPlayerList();
-            });
-          });
+          setNetTopics(roomCode);
+          Net.init(NET_UP, handleAdminMessage, showAdminQR);
 
         } else {
           msg.innerText = "❌ Không tìm thấy câu hỏi nào!";
         }
       } catch (e) {
         msg.innerText = "❌ Lỗi kết nối Google Sheet: " + e.message;
+      }
+    }
+
+    function showAdminQR() {
+      document.getElementById('player-list').innerHTML = `<span class="text-gray-400 italic">Sẵn sàng! Hãy quét mã QR để vào phòng.</span>`;
+
+      const currentUrl = window.location.href.split('?')[0].split('#')[0];
+      const playerJoinUrl = `${currentUrl}?role=player&room=${roomCode}`;
+
+      document.getElementById('qrcode').innerHTML = '';
+      new QRCode(document.getElementById("qrcode"), {
+        text: playerJoinUrl, width: 170, height: 170
+      });
+
+      document.getElementById('modal-qrcode').innerHTML = '';
+      new QRCode(document.getElementById("modal-qrcode"), {
+        text: playerJoinUrl, width: 320, height: 320
+      });
+    }
+
+    function handleAdminMessage(data) {
+      if (!data || typeof data.pid !== 'string' || !/^p[a-z0-9]{4,12}$/.test(data.pid)) return;
+
+      if (data.type === 'PLAYER_JOIN') {
+        const name = String(data.name || 'Học sinh').trim().slice(0, 30) || 'Học sinh';
+        if (players[data.pid]) players[data.pid].name = name;
+        else players[data.pid] = { name: name, score: 0 };
+        Net.pub(NET_DOWN, { type: 'JOIN_ACK', pid: data.pid });
+        renderPlayerList();
+      }
+      else if (data.type === 'SUBMIT_ANSWER') {
+        const p = players[data.pid];
+        if (!p || !answeringOpen) return;
+        if (data.qIndex !== currentQIndex) return;
+        if (!['A', 'B', 'C', 'D'].includes(data.selected)) return;
+        if (questionPlayerScores[data.pid] !== undefined) return; // đã trả lời rồi
+
+        const currentQ = questions[data.qIndex];
+        if (currentQ && data.selected === currentQ.correct) {
+          correctAnswersOrder++;
+          const totalPlayers = Object.keys(players).length || 1;
+          const step = totalPlayers > 1 ? (90 / (totalPlayers - 1)) : 0;
+          const points = Math.max(10, Math.round(100 - (correctAnswersOrder - 1) * step));
+          p.score += points;
+          questionPlayerScores[data.pid] = points;
+        } else {
+          questionPlayerScores[data.pid] = 0;
+        }
+        currentAnswersCount[data.selected]++;
       }
     }
 
@@ -852,7 +904,7 @@
       }
 
       container.innerHTML = playerList.map(([id, p]) => 
-        `<span class="bg-purple-500/20 text-purple-200 px-4 py-1.5 rounded-full border border-purple-500/30 font-semibold text-sm animate-pulse">${p.name}</span>`
+        `<span class="bg-purple-500/20 text-purple-200 px-4 py-1.5 rounded-full border border-purple-500/30 font-semibold text-sm animate-pulse">${escapeHtml(p.name)}</span>`
       ).join('');
 
       renderModalPlayerList(playerList);
@@ -864,9 +916,9 @@
         <div class="flex items-center justify-between p-3 hover:bg-slate-800/60 transition-all rounded-lg">
           <div class="flex items-center gap-3">
             <div class="w-8 h-8 bg-purple-600/30 text-purple-300 rounded-full flex items-center justify-center font-bold text-sm">
-              ${p.name.charAt(0).toUpperCase()}
+              ${escapeHtml(p.name.charAt(0).toUpperCase())}
             </div>
-            <span class="font-semibold text-gray-200">${p.name}</span>
+            <span class="font-semibold text-gray-200">${escapeHtml(p.name)}</span>
           </div>
           <button onclick="kickPlayer('${id}')" class="bg-red-500/20 hover:bg-red-500 text-red-300 hover:text-white border border-red-500/30 px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1">
             <i class="fa-solid fa-user-xmark"></i> Loại
@@ -889,19 +941,14 @@
 
     function kickPlayer(peerId) {
       if (players[peerId]) {
-        if (players[peerId].conn && players[peerId].conn.open) {
-          players[peerId].conn.send({ type: 'KICKED' });
-          players[peerId].conn.close();
-        }
+        Net.pub(NET_DOWN, { type: 'KICKED', pid: peerId });
         delete players[peerId];
         renderPlayerList();
       }
     }
 
     function broadcastToPlayers(data) {
-      adminConns.forEach(conn => {
-        if (conn.open) conn.send(data);
-      });
+      Net.pub(NET_DOWN, data);
     }
 
     function adminStartGame() {
@@ -918,6 +965,7 @@
         return;
       }
 
+      answeringOpen = false;
       currentAnswersCount = { A: 0, B: 0, C: 0, D: 0 };
       correctAnswersOrder = 0;
       questionPlayerScores = {};
@@ -977,6 +1025,7 @@
     }
 
     function startOfficialTimer() {
+      answeringOpen = true;
       document.getElementById('options-grid').classList.remove('hidden');
       document.getElementById('admin-q-status').innerHTML = `<i class="fa-solid fa-bolt text-yellow-400"></i> Trả lời sớm nhất nhận 100đ`;
       
@@ -1001,6 +1050,7 @@
     }
 
     function revealAdminAnswers() {
+      answeringOpen = false;
       const currentQ = questions[currentQIndex];
       const correctOpt = currentQ.correct;
 
@@ -1020,15 +1070,10 @@
         }
       });
 
-      adminConns.forEach(conn => {
-        if (conn.open) {
-          const scoreEarned = questionPlayerScores[conn.peer] || 0;
-          conn.send({
-            type: 'REVEAL_RESULT',
-            correctOption: correctOpt,
-            scoreEarned: scoreEarned
-          });
-        }
+      broadcastToPlayers({
+        type: 'REVEAL_RESULT',
+        correctOption: correctOpt,
+        scores: questionPlayerScores
       });
 
       showAnswersChart();
@@ -1106,46 +1151,7 @@
     }
 
     // --- HỌC SINH (PLAYER) ---
-    function playerJoin() {
-      const code = document.getElementById('roomCodeInput').value.trim();
-      myPlayerName = document.getElementById('playerName').value.trim();
-      const msg = document.getElementById('player-login-msg');
-
-      if (!code) return alert('Vui lòng nhập Mã Phòng!');
-      if (!myPlayerName) return alert('Vui lòng nhập Tên!');
-
-      msg.innerText = "⏳ Đang kết nối tới phòng...";
-
-      peer = new Peer(PEER_OPTIONS);
-
-      peer.on('error', (err) => {
-        if (err.type === 'peer-unavailable') {
-          msg.innerText = "❌ Không tìm thấy phòng này. Kiểm tra lại mã phòng!";
-        } else {
-          msg.innerText = "❌ Lỗi kết nối: " + err.type;
-        }
-      });
-
-      peer.on('open', () => {
-        playerConn = peer.connect('quiz_room_' + code, { reliable: true });
-
-        // Quá 15 giây mà chưa vào được phòng thì báo lỗi
-        const joinTimeout = setTimeout(() => {
-          if (!playerConn.open) {
-            msg.innerText = "❌ Không kết nối được tới phòng (mạng có thể đang chặn). Thử đổi wifi/4G rồi vào lại!";
-          }
-        }, 15000);
-
-        playerConn.on('open', () => {
-          clearTimeout(joinTimeout);
-          document.getElementById('player-login').classList.add('hidden');
-          document.getElementById('player-wait').classList.remove('hidden');
-          document.getElementById('player-display-name').innerText = myPlayerName;
-
-          playerConn.send({ type: 'PLAYER_JOIN', name: myPlayerName });
-        });
-
-        playerConn.on('data', (data) => {
+    function handlePlayerMessage(data) {
           if (data.type === 'START_GAME') {
             document.getElementById('player-wait').classList.add('hidden');
             document.getElementById('player-quiz').classList.remove('hidden');
@@ -1227,7 +1233,7 @@
               resultIcon.innerHTML = '<i class="fa-solid fa-circle-check text-emerald-400"></i>';
               resultTitle.innerText = 'CHÍNH XÁC!';
               resultTitle.className = 'text-2xl font-black text-emerald-300';
-              resultScore.innerText = `+${data.scoreEarned} điểm`;
+              resultScore.innerText = `+${(data.scores || {})[myPid] || 0} điểm`;
             } else {
               resultBox.className = 'p-6 bg-red-900/60 border-2 border-red-500 rounded-2xl text-center mb-4 shadow-xl';
               resultIcon.innerHTML = '<i class="fa-solid fa-circle-xmark text-red-400"></i>';
@@ -1236,7 +1242,7 @@
               resultScore.innerText = '';
             }
           }
-          else if (data.type === 'KICKED') {
+          else if (data.type === 'KICKED' && data.pid === myPid) {
             document.getElementById('player-wait').classList.add('hidden');
             document.getElementById('player-quiz').classList.add('hidden');
             document.getElementById('player-end').classList.remove('hidden');
@@ -1248,12 +1254,48 @@
             document.getElementById('player-quiz').classList.add('hidden');
             document.getElementById('player-end').classList.remove('hidden');
           }
-        });
+    }
 
-        playerConn.on('error', () => {
-          msg.innerText = "❌ Không kết nối được tới phòng. Thử đổi wifi/4G rồi vào lại!";
-        });
-      });
+    function playerJoin() {
+      const code = document.getElementById('roomCodeInput').value.trim();
+      myPlayerName = document.getElementById('playerName').value.trim();
+      const msg = document.getElementById('player-login-msg');
+
+      if (!code) return alert('Vui lòng nhập Mã Phòng!');
+      if (!myPlayerName) return alert('Vui lòng nhập Tên!');
+
+      msg.innerText = "⏳ Đang kết nối tới phòng...";
+
+      myPid = 'p' + Math.random().toString(36).slice(2, 9);
+      setNetTopics(code);
+
+      let joined = false;
+      const sendJoin = () => Net.pub(NET_UP, { type: 'PLAYER_JOIN', pid: myPid, name: myPlayerName });
+
+      const joinRetry = setInterval(() => { if (Net.isConnected() && !joined) sendJoin(); }, 2000);
+      const joinTimeout = setTimeout(() => {
+        if (joined) return;
+        clearInterval(joinRetry);
+        msg.innerText = Net.isConnected()
+          ? "❌ Không tìm thấy phòng này. Kiểm tra lại mã phòng và chắc chắn máy chiếu đã tạo phòng!"
+          : "❌ Không kết nối được tới máy chủ trung gian. Kiểm tra mạng rồi thử lại!";
+        Net.close();
+      }, 15000);
+
+      Net.init(NET_DOWN, (data) => {
+        if (data.type === 'JOIN_ACK') {
+          if (data.pid === myPid && !joined) {
+            joined = true;
+            clearInterval(joinRetry);
+            clearTimeout(joinTimeout);
+            document.getElementById('player-login').classList.add('hidden');
+            document.getElementById('player-wait').classList.remove('hidden');
+            document.getElementById('player-display-name').innerText = myPlayerName;
+          }
+          return;
+        }
+        if (joined) handlePlayerMessage(data);
+      }, sendJoin);
     }
 
     function playerSelectOption(opt) {
@@ -1268,14 +1310,7 @@
 
       document.getElementById('player-status-msg').innerText = '';
 
-      if (playerConn && playerConn.open) {
-        playerConn.send({
-          type: 'SUBMIT_ANSWER',
-          name: myPlayerName,
-          qIndex: currentQIndex,
-          selected: opt
-        });
-      }
+      Net.pub(NET_UP, { type: 'SUBMIT_ANSWER', pid: myPid, qIndex: currentQIndex, selected: opt });
     }
 
     function disablePlayerButtons() {
