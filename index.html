@@ -288,6 +288,11 @@
       filter: blur(4px);
     }
 
+    /* Bục trống khi chưa đủ 3 người chơi */
+    .podium-empty { filter: grayscale(1) brightness(0.55); opacity: 0.8; }
+    .podium-play .podium-empty { animation-name: podiumRiseEmpty; }
+    @keyframes podiumRiseEmpty { to { opacity: 0.8; transform: translateY(0) scale(1); } }
+
     @media (max-width: 640px) {
       .p-avatar-1 { width: 76px; height: 76px; font-size: 2.2rem; }
       .p-avatar-2 { width: 58px; height: 58px; font-size: 1.6rem; }
@@ -537,7 +542,7 @@
 
         <div class="relative z-10">
           <p class="text-yellow-200/80 font-bold tracking-[0.4em] text-xs md:text-sm mb-2">
-            <i class="fa-solid fa-sparkles"></i> CHÚC MỪNG CÁC NHÀ VÔ ĐỊCH <i class="fa-solid fa-sparkles"></i>
+            <i class="fa-solid fa-star"></i> CHÚC MỪNG CÁC NHÀ VÔ ĐỊCH <i class="fa-solid fa-star"></i>
           </p>
           <h1 class="podium-title text-3xl md:text-5xl font-black uppercase tracking-widest mb-6">
             🏆 Vinh Danh Top 3 🏆
@@ -691,6 +696,19 @@
     let mySelectedOption = '';
     let currentAnswersCount = { A: 0, B: 0, C: 0, D: 0 };
     
+    // Cấu hình STUN + TURN để kết nối được cả khi khác mạng (4G / wifi khác)
+    const PEER_OPTIONS = {
+      config: {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+          { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+          { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+        ]
+      }
+    };
+
     let correctAnswersOrder = 0;
     let questionPlayerScores = {};
 
@@ -749,7 +767,7 @@
           document.getElementById('room-code').innerText = roomCode;
           document.getElementById('modal-room-code').innerText = roomCode;
 
-          peer = new Peer('quiz_room_' + roomCode);
+          peer = new Peer('quiz_room_' + roomCode, PEER_OPTIONS);
 
           peer.on('open', (id) => {
             document.getElementById('player-list').innerHTML = `<span class="text-gray-400 italic">Sẵn sàng! Hãy quét mã QR để vào phòng.</span>`;
@@ -1051,13 +1069,16 @@
         [1, 2, 3].forEach(rank => {
           const p = sorted[rank - 1];
           const col = document.getElementById(`col-top${rank}`);
+          col.style.visibility = 'visible';
+          col.classList.toggle('podium-empty', !p);
           if (p) {
-            col.style.visibility = 'visible';
             document.getElementById(`name-top${rank}`).innerText = p.name;
             document.getElementById(`avatar-top${rank}`).innerText = (p.name.trim().charAt(0) || '?').toUpperCase();
             document.getElementById(`score-top${rank}`).innerText = `${p.score} điểm`;
           } else {
-            col.style.visibility = 'hidden';
+            document.getElementById(`name-top${rank}`).innerText = 'Chưa có';
+            document.getElementById(`avatar-top${rank}`).innerText = '?';
+            document.getElementById(`score-top${rank}`).innerText = '— điểm';
           }
         });
 
@@ -1095,12 +1116,28 @@
 
       msg.innerText = "⏳ Đang kết nối tới phòng...";
 
-      peer = new Peer();
+      peer = new Peer(PEER_OPTIONS);
+
+      peer.on('error', (err) => {
+        if (err.type === 'peer-unavailable') {
+          msg.innerText = "❌ Không tìm thấy phòng này. Kiểm tra lại mã phòng!";
+        } else {
+          msg.innerText = "❌ Lỗi kết nối: " + err.type;
+        }
+      });
 
       peer.on('open', () => {
-        playerConn = peer.connect('quiz_room_' + code);
+        playerConn = peer.connect('quiz_room_' + code, { reliable: true });
+
+        // Quá 15 giây mà chưa vào được phòng thì báo lỗi
+        const joinTimeout = setTimeout(() => {
+          if (!playerConn.open) {
+            msg.innerText = "❌ Không kết nối được tới phòng (mạng có thể đang chặn). Thử đổi wifi/4G rồi vào lại!";
+          }
+        }, 15000);
 
         playerConn.on('open', () => {
+          clearTimeout(joinTimeout);
           document.getElementById('player-login').classList.add('hidden');
           document.getElementById('player-wait').classList.remove('hidden');
           document.getElementById('player-display-name').innerText = myPlayerName;
@@ -1214,7 +1251,7 @@
         });
 
         playerConn.on('error', () => {
-          msg.innerText = "❌ Không tìm thấy mã phòng này!";
+          msg.innerText = "❌ Không kết nối được tới phòng. Thử đổi wifi/4G rồi vào lại!";
         });
       });
     }
