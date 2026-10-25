@@ -304,8 +304,8 @@
     }
 
     @keyframes toastSlide {
-      from { opacity: 0; transform: translateX(40px); }
-      to { opacity: 1; transform: translateX(0); }
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
     }
     .toast-slide { animation: toastSlide 0.35s ease-out forwards; }
 
@@ -517,7 +517,7 @@
       </div>
 
       <!-- THÔNG BÁO CHUYỂN TAB (tự ẩn sau 3 giây) -->
-      <div id="cheat-toasts" class="fixed bottom-4 right-[250px] z-[60] flex flex-col items-end gap-2 pointer-events-none"></div>
+      <div id="cheat-toasts" class="fixed bottom-20 right-4 z-[60] flex flex-col items-end gap-2 pointer-events-none"></div>
 
       <!-- NÚT + MODAL DANH SÁCH GHI NHẬN GIAN LẬN -->
       <button id="cheat-btn" onclick="toggleCheatModal(true)" class="hidden fixed bottom-4 right-4 z-40 bg-red-600 hover:bg-red-500 text-white px-4 py-3 rounded-2xl font-bold text-sm shadow-2xl items-center gap-2 border border-red-300/40">
@@ -787,6 +787,13 @@
     const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbxcr1JQfRQ2F40pyGgXLix9x3VQREv_ZiGdwzSlQzv2Ca_mgAp2Xuu_1dTI6HBDEyI/exec';
 
     let gameRunning = false;
+    let adminPhase = 'idle';      // idle | read | answer | reveal
+    let adminPhaseEnd = 0;        // mốc thời gian kết thúc giai đoạn hiện tại
+    let adminLastReveal = null;
+    let syncInterval = null;
+    let playerPhase = '';         // phía học sinh: read | answer | reveal
+    let playerPhaseQ = -1;
+    const PHASE_RANK = { read: 1, answer: 2, reveal: 3 };
     let cheatLog = [];
     let cheatSeen = new Set();
     let playerPlaying = false;
@@ -1123,6 +1130,22 @@
     function adminStartGame() {
       timeLimit = Math.min(60, Math.max(5, parseInt(document.getElementById('timeLimit').value) || 15));
       gameRunning = true;
+      clearInterval(syncInterval);
+      syncInterval = setInterval(() => {
+        if (!gameRunning) return;
+        const msg = {
+          type: 'SYNC',
+          qIndex: currentQIndex,
+          phase: adminPhase,
+          remainingMs: Math.max(0, adminPhaseEnd - Date.now()),
+          timeLimit: timeLimit
+        };
+        if (adminPhase === 'reveal' && adminLastReveal) {
+          msg.correctOption = adminLastReveal.correctOption;
+          msg.scores = adminLastReveal.scores;
+        }
+        broadcastToPlayers(msg);
+      }, 2000);
       cheatLog = [];
       cheatSeen.clear();
       renderCheatList();
@@ -1178,8 +1201,11 @@
       document.getElementById('options-grid').classList.add('hidden');
       document.getElementById('admin-q-status').innerHTML = '';
       
-      let readTimeLeft = 3;
-      document.getElementById('admin-timer').innerText = readTimeLeft;
+      const readEnd = Date.now() + 3000;
+      adminPhase = 'read';
+      adminPhaseEnd = readEnd;
+      adminLastReveal = null;
+      document.getElementById('admin-timer').innerText = 3;
       document.getElementById('admin-timer-unit').innerText = "đọc đề";
       document.getElementById('admin-timer-icon').className = "fa-solid fa-hourglass-start text-3xl text-amber-400 animate-spin";
 
@@ -1187,18 +1213,19 @@
 
       broadcastToPlayers({
         type: 'NEW_QUESTION_READ',
-        qIndex: currentQIndex
+        qIndex: currentQIndex,
+        remainingMs: 3000
       });
 
-      timerInterval = setInterval(() => {
-        readTimeLeft--;
-        document.getElementById('admin-timer').innerText = readTimeLeft;
-
-        if (readTimeLeft <= 0) {
+      const tickRead = () => {
+        const left = Math.max(0, Math.ceil((readEnd - Date.now()) / 1000));
+        document.getElementById('admin-timer').innerText = left;
+        if (Date.now() >= readEnd) {
           clearInterval(timerInterval);
-          startOfficialTimer(); 
+          startOfficialTimer();
         }
-      }, 1000);
+      };
+      timerInterval = setInterval(tickRead, 250);
     }
 
     function startOfficialTimer() {
@@ -1206,24 +1233,28 @@
       document.getElementById('options-grid').classList.remove('hidden');
       document.getElementById('admin-q-status').innerHTML = `<i class="fa-solid fa-bolt text-yellow-400"></i> Trả lời sớm nhất nhận 100đ`;
       
-      let timeLeft = timeLimit;
-      document.getElementById('admin-timer').innerText = timeLeft;
+      const answerEnd = Date.now() + timeLimit * 1000;
+      adminPhase = 'answer';
+      adminPhaseEnd = answerEnd;
+      document.getElementById('admin-timer').innerText = timeLimit;
       document.getElementById('admin-timer-unit').innerText = "giây";
       document.getElementById('admin-timer-icon').className = "fa-solid fa-clock text-3xl text-amber-400";
 
       broadcastToPlayers({
         type: 'START_ANSWERING',
-        timeLimit: timeLimit
+        timeLimit: timeLimit,
+        remainingMs: timeLimit * 1000
       });
 
-      timerInterval = setInterval(() => {
-        timeLeft--;
-        document.getElementById('admin-timer').innerText = timeLeft;
-        if (timeLeft <= 0) {
+      const tickAnswer = () => {
+        const left = Math.max(0, Math.ceil((answerEnd - Date.now()) / 1000));
+        document.getElementById('admin-timer').innerText = left;
+        if (Date.now() >= answerEnd) {
           clearInterval(timerInterval);
           revealAdminAnswers();
         }
-      }, 1000);
+      };
+      timerInterval = setInterval(tickAnswer, 250);
     }
 
     function revealAdminAnswers() {
@@ -1247,6 +1278,8 @@
         }
       });
 
+      adminPhase = 'reveal';
+      adminLastReveal = { correctOption: correctOpt, scores: Object.assign({}, questionPlayerScores) };
       broadcastToPlayers({
         type: 'REVEAL_RESULT',
         correctOption: correctOpt,
@@ -1277,6 +1310,8 @@
 
     function finishGame() {
       gameRunning = false;
+      adminPhase = 'idle';
+      clearInterval(syncInterval);
       document.getElementById('admin-game').classList.add('hidden');
       document.getElementById('admin-loading').classList.remove('hidden');
       broadcastToPlayers({ type: 'END_GAME' });
@@ -1353,19 +1388,18 @@
             document.getElementById('player-q-progress').innerText = `Câu ${data.qIndex + 1}`;
             document.getElementById('player-status-msg').innerText = 'Hãy tập trung đọc đề trên máy chiếu!';
 
-            let read3s = 3;
-            document.getElementById('player-read-countdown').innerText = read3s;
-            document.getElementById('player-timer').innerText = `3s`;
-
+            playerPhase = 'read';
+            playerPhaseQ = data.qIndex;
+            const readEnd = Date.now() + (data.remainingMs != null ? data.remainingMs : 3000);
+            const tickRead = () => {
+              const left = Math.max(0, Math.ceil((readEnd - Date.now()) / 1000));
+              document.getElementById('player-read-countdown').innerText = left;
+              document.getElementById('player-timer').innerText = `${left}s`;
+              if (left <= 0) clearInterval(timerInterval);
+            };
+            tickRead();
             clearInterval(timerInterval);
-            timerInterval = setInterval(() => {
-              read3s--;
-              document.getElementById('player-read-countdown').innerText = read3s;
-              document.getElementById('player-timer').innerText = `${read3s}s`;
-              if (read3s <= 0) {
-                clearInterval(timerInterval);
-              }
-            }, 1000);
+            timerInterval = setInterval(tickRead, 250);
           }
           else if (data.type === 'START_ANSWERING') {
             document.getElementById('player-read-box').classList.add('hidden');
@@ -1376,26 +1410,46 @@
             const btns = document.querySelectorAll('.opt-btn');
             btns.forEach(b => b.disabled = false);
 
-            currentTimerValue = data.timeLimit;
-            document.getElementById('player-timer').innerText = `${currentTimerValue}s`;
-
-            clearInterval(timerInterval);
-            timerInterval = setInterval(() => {
-              currentTimerValue--;
-              document.getElementById('player-timer').innerText = `${currentTimerValue}s`;
-              if (currentTimerValue <= 0) {
+            playerPhase = 'answer';
+            const ansEnd = Date.now() + (data.remainingMs != null ? data.remainingMs : data.timeLimit * 1000);
+            const tickAns = () => {
+              const left = Math.max(0, Math.ceil((ansEnd - Date.now()) / 1000));
+              document.getElementById('player-timer').innerText = `${left}s`;
+              if (left <= 0) {
                 clearInterval(timerInterval);
                 disablePlayerButtons();
-                
                 if (!playerHasAnswered) {
                   const statusMsg = document.getElementById('player-status-msg');
                   statusMsg.innerText = '⌛ Hết giờ! Bạn chưa chọn câu hỏi nào';
                   statusMsg.className = 'text-center text-sm font-bold text-red-400 italic min-h-[20px] animate-pulse';
                 }
               }
-            }, 1000);
+            };
+            tickAns();
+            clearInterval(timerInterval);
+            timerInterval = setInterval(tickAns, 250);
+          }
+          else if (data.type === 'SYNC') {
+            // Đồng bộ lại nếu học sinh lỡ mất tin (chuyển tab, mất mạng...)
+            if (!playerPlaying) handlePlayerMessage({ type: 'START_GAME' });
+            const behind = playerPhaseQ < data.qIndex ||
+              (playerPhaseQ === data.qIndex && (PHASE_RANK[playerPhase] || 0) < (PHASE_RANK[data.phase] || 0));
+            if (behind && PHASE_RANK[data.phase]) {
+              if (data.phase === 'read') {
+                handlePlayerMessage({ type: 'NEW_QUESTION_READ', qIndex: data.qIndex, remainingMs: data.remainingMs });
+              } else {
+                if (playerPhaseQ !== data.qIndex) handlePlayerMessage({ type: 'NEW_QUESTION_READ', qIndex: data.qIndex, remainingMs: 0 });
+                if (data.phase === 'answer') {
+                  handlePlayerMessage({ type: 'START_ANSWERING', timeLimit: data.timeLimit, remainingMs: data.remainingMs });
+                } else if (data.phase === 'reveal') {
+                  handlePlayerMessage({ type: 'REVEAL_RESULT', correctOption: data.correctOption, scores: data.scores });
+                }
+              }
+            }
           }
           else if (data.type === 'REVEAL_RESULT') {
+            playerPhase = 'reveal';
+            clearInterval(timerInterval);
             document.getElementById('player-read-box').classList.add('hidden');
             document.getElementById('player-options-box').classList.add('hidden');
             document.getElementById('player-answered-box').classList.add('hidden');
