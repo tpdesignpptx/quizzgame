@@ -828,8 +828,13 @@
     let answeringOpen = false;
     let myPid = '';
 
+    const MAX_PLAYERS = 200;
+    let NET_BASE = '';
+    function ackTopic(pid) { return NET_BASE + '/a/' + pid; }
+
     function setNetTopics(code) {
       const base = 'tpdesign-quiz-v1/' + code;
+      NET_BASE = base;
       NET_UP = base + '/u';
       NET_DOWN = base + '/d';
     }
@@ -852,7 +857,7 @@
             connectTimeout: 8000
           });
           c.on('connect', () => {
-            c.subscribe(subTopic, { qos: 0 }, (err) => {
+            c.subscribe(Array.isArray(subTopic) ? subTopic : [subTopic], { qos: 0 }, (err) => {
               if (err) return;
               if (!this.connectedOnce) {
                 this.connectedOnce = true;
@@ -979,6 +984,12 @@
       }
     }
 
+    function compactScores() {
+      const out = {};
+      Object.keys(questionPlayerScores).forEach(pid => { if (questionPlayerScores[pid] > 0) out[pid] = questionPlayerScores[pid]; });
+      return out;
+    }
+
     function showAdminQR() {
       roomReady = true;
       document.getElementById('room-code').innerText = roomCode;
@@ -1012,10 +1023,14 @@
 
       if (data.type === 'PLAYER_JOIN') {
         const name = String(data.name || 'Học sinh').trim().slice(0, 30) || 'Học sinh';
+        if (!players[data.pid] && Object.keys(players).length >= MAX_PLAYERS) {
+          Net.pub(ackTopic(data.pid), { type: 'JOIN_FULL', pid: data.pid });
+          return;
+        }
         if (players[data.pid]) players[data.pid].name = name;
         else players[data.pid] = { name: name, score: 0 };
-        Net.pub(NET_DOWN, { type: 'JOIN_ACK', pid: data.pid });
-        renderPlayerList();
+        Net.pub(ackTopic(data.pid), { type: 'JOIN_ACK', pid: data.pid });
+        scheduleRenderPlayerList();
       }
       else if (data.type === 'SUBMIT_ANSWER') {
         const p = players[data.pid];
@@ -1086,6 +1101,12 @@
       const modal = document.getElementById('qr-modal');
       if (show) modal.classList.remove('hidden');
       else modal.classList.add('hidden');
+    }
+
+    let renderTimer = null;
+    function scheduleRenderPlayerList() {
+      if (renderTimer) return;
+      renderTimer = setTimeout(() => { renderTimer = null; renderPlayerList(); }, 150);
     }
 
     function renderPlayerList() {
@@ -1168,7 +1189,7 @@
           msg.scores = adminLastReveal.scores;
         }
         broadcastToPlayers(msg);
-      }, 2000);
+      }, 3000);
       cheatLog = [];
       cheatSeen.clear();
       renderCheatList();
@@ -1302,11 +1323,11 @@
       });
 
       adminPhase = 'reveal';
-      adminLastReveal = { correctOption: correctOpt, scores: Object.assign({}, questionPlayerScores) };
+      adminLastReveal = { correctOption: correctOpt, scores: compactScores() };
       broadcastToPlayers({
         type: 'REVEAL_RESULT',
         correctOption: correctOpt,
-        scores: questionPlayerScores
+        scores: compactScores()
       });
 
       showAnswersChart();
@@ -1547,7 +1568,14 @@
         Net.close();
       }, 15000);
 
-      Net.init(NET_DOWN, (data) => {
+      Net.init([NET_DOWN, ackTopic(myPid)], (data) => {
+        if (data.type === 'JOIN_FULL' && data.pid === myPid && !joined) {
+          clearInterval(joinRetry);
+          clearTimeout(joinTimeout);
+          msg.innerText = '❌ Phòng đã đầy, không thể tham gia thêm!';
+          Net.close();
+          return;
+        }
         if (data.type === 'JOIN_ACK') {
           if (data.pid === myPid && !joined) {
             joined = true;
