@@ -302,6 +302,82 @@
       .podium-box-3 { height: 100px; }
       .name-plate { font-size: 0.7rem !important; padding: 6px 6px; }
     }
+
+    /* ============ GIAO DIỆN ĐEN HIỆN ĐẠI ============ */
+    body {
+      background-color: #050507;
+      background-image:
+        radial-gradient(ellipse 70% 45% at 50% -8%, rgba(139, 92, 246, 0.20), transparent 65%),
+        radial-gradient(ellipse 50% 35% at 100% 100%, rgba(236, 72, 153, 0.12), transparent 65%),
+        radial-gradient(ellipse 40% 30% at 0% 90%, rgba(59, 130, 246, 0.08), transparent 65%);
+      background-attachment: fixed;
+    }
+    /* Lưới chấm mờ phía sau */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+      background-size: 28px 28px;
+      -webkit-mask-image: radial-gradient(ellipse at center, #000 20%, transparent 75%);
+      mask-image: radial-gradient(ellipse at center, #000 20%, transparent 75%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    body > div { position: relative; z-index: 1; }
+
+    .glass {
+      position: relative;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    }
+    .glass::before {
+      content: '';
+      position: absolute;
+      inset: 0 12% auto 12%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(167, 139, 250, 0.7), transparent);
+      pointer-events: none;
+    }
+    .glass input {
+      background: rgba(255, 255, 255, 0.04);
+      border-color: rgba(255, 255, 255, 0.10);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .glass input:focus {
+      border-color: rgba(167, 139, 250, 0.8);
+      box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.15);
+    }
+    .glow-btn { box-shadow: 0 8px 30px rgba(168, 85, 247, 0.35); }
+    .glow-btn:hover { box-shadow: 0 10px 40px rgba(236, 72, 153, 0.55); }
+
+    #role-selector .bg-slate-800 { background: rgba(255, 255, 255, 0.04); border-color: rgba(255, 255, 255, 0.10); }
+    #role-selector .bg-slate-800:hover { background: rgba(255, 255, 255, 0.09); }
+    #role-selector input { background: rgba(255, 255, 255, 0.04); border-color: rgba(255, 255, 255, 0.10); }
+
+    /* Màn hình học sinh */
+    #player-flow .bg-slate-800 {
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+      border-color: rgba(255, 255, 255, 0.08);
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
+    }
+    #player-flow .bg-slate-900, #player-flow input.bg-slate-900 { background: rgba(0, 0, 0, 0.45); border-color: rgba(255, 255, 255, 0.10); }
+
+    /* Hộp thoại */
+    #player-modal > div, #qr-modal > div, #cheat-modal > div {
+      background: #09090d;
+      box-shadow: 0 30px 90px rgba(0, 0, 0, 0.8);
+    }
+
+    /* Bục vinh danh nền đen */
+    .podium-stage {
+      background:
+        radial-gradient(ellipse at 50% 0%, rgba(250, 204, 21, 0.20), transparent 55%),
+        radial-gradient(ellipse at 50% 100%, rgba(139, 92, 246, 0.18), transparent 60%),
+        #070709;
+      border: 1px solid rgba(250, 204, 21, 0.22);
+    }
   </style>
 </head>
 
@@ -314,17 +390,22 @@
       <div class="w-20 h-20 bg-purple-600/30 rounded-full flex items-center justify-center mx-auto mb-6 border border-purple-500/30">
         <i class="fa-solid fa-gamepad text-4xl text-purple-400"></i>
       </div>
-      <h1 class="text-3xl font-extrabold mb-2 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">QUIZ GAME INTERACTIVE</h1>
-      <p class="text-gray-400 mb-8">Vui lòng chọn vai trò để bắt đầu</p>
+      <h1 class="text-4xl font-extrabold mb-8 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent tracking-wide">QUIZZ GAME</h1>
 
-      <div class="grid grid-cols-1 gap-4">
-        <button onclick="switchRole('admin')" class="glow-btn bg-gradient-to-r from-purple-600 to-pink-600 p-5 rounded-2xl font-bold text-xl flex items-center justify-center gap-3">
-          <i class="fa-solid fa-desktop"></i> Quản Trị / Máy Chiếu
-        </button>
-        <button onclick="switchRole('player')" class="bg-slate-800 hover:bg-slate-700 border border-slate-600 p-5 rounded-2xl font-bold text-xl flex items-center justify-center gap-3 text-purple-300">
-          <i class="fa-solid fa-mobile-screen-button"></i> Học Sinh Thuyết Trình
-        </button>
+      <button onclick="switchRole('admin')" class="glow-btn w-full bg-gradient-to-r from-purple-600 to-pink-600 p-5 rounded-2xl font-bold text-xl flex items-center justify-center gap-3">
+        <i class="fa-solid fa-desktop"></i> Quản Trị
+      </button>
+
+      <div class="flex items-center gap-3 my-6 text-gray-500 text-sm">
+        <div class="flex-1 h-px bg-white/10"></div>
+        <span>hoặc nhập mã để tham gia</span>
+        <div class="flex-1 h-px bg-white/10"></div>
       </div>
+
+      <input type="text" id="roomCodeHome" maxlength="8" placeholder="Nhập mã phòng..." onkeydown="if(event.key==='Enter') joinFromHome()" class="w-full bg-slate-900/80 border border-slate-600 rounded-xl px-4 py-3 text-center text-xl text-yellow-400 mb-3 focus:outline-none focus:border-purple-500 font-bold uppercase tracking-widest">
+      <button onclick="joinFromHome()" class="w-full bg-slate-800 hover:bg-slate-700 border border-slate-600 p-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-3 text-purple-300">
+        <i class="fa-solid fa-right-to-bracket"></i> Tham Gia
+      </button>
     </div>
 
     <!-- MÀN HÌNH QUẢN TRỊ (ADMIN) -->
@@ -333,19 +414,9 @@
       <div id="admin-setup" class="glass rounded-3xl p-8 text-center max-w-lg mx-auto shadow-2xl">
         <h2 class="text-2xl font-extrabold mb-6 text-purple-300">Cấu Hình Trò Chơi</h2>
         
-        <div class="text-left mb-4">
-          <label class="block text-sm font-medium text-purple-200 mb-2">Thời gian mỗi câu (giây):</label>
-          <input type="number" id="timeLimit" value="15" min="5" max="60" class="w-full bg-white/5 border border-purple-500/30 rounded-xl px-4 py-3 text-xl text-center text-white focus:outline-none focus:border-purple-400">
-        </div>
-
-        <div class="text-left mb-4">
-          <label class="block text-sm font-medium text-purple-200 mb-2">Mã bảo mật tải đề (6 chữ số ở ô H2):</label>
-          <input type="password" id="pinCode" maxlength="6" placeholder="Nhập 6 số bảo mật..." class="w-full bg-white/5 border border-purple-500/30 rounded-xl px-4 py-3 text-center text-xl text-yellow-400 font-bold tracking-widest focus:outline-none focus:border-purple-400">
-        </div>
-
         <div class="text-left mb-6">
-          <label class="block text-sm font-medium text-purple-200 mb-2">API Ngân Hàng Câu Hỏi:</label>
-          <input type="text" id="sheetUrl" value="https://script.google.com/macros/s/AKfycbxcr1JQfRQ2F40pyGgXLix9x3VQREv_ZiGdwzSlQzv2Ca_mgAp2Xuu_1dTI6HBDEyI/exec" class="w-full bg-white/5 border border-purple-500/30 rounded-xl px-4 py-3 text-xs text-gray-300 focus:outline-none focus:border-purple-400" readonly>
+          <label class="block text-sm font-medium text-purple-200 mb-2">Mã bảo mật tải đề (6 chữ số ở ô H2):</label>
+          <input type="password" id="pinCode" maxlength="6" onkeydown="if(event.key==='Enter') fetchQuestionsAndCreateRoom()" placeholder="Nhập 6 số bảo mật..." class="w-full bg-white/5 border border-purple-500/30 rounded-xl px-4 py-3 text-center text-xl text-yellow-400 font-bold tracking-widest focus:outline-none focus:border-purple-400">
         </div>
 
         <button onclick="fetchQuestionsAndCreateRoom()" class="glow-btn w-full bg-gradient-to-r from-purple-600 to-pink-600 font-bold py-4 rounded-xl text-lg flex items-center justify-center gap-2">
@@ -390,6 +461,11 @@
           </div>
         </div>
 
+        <div class="max-w-xs mx-auto mb-6 text-left">
+          <label class="block text-sm font-medium text-purple-200 mb-2 text-center">Thời gian mỗi câu (giây):</label>
+          <input type="number" id="timeLimit" value="15" min="5" max="60" class="w-full bg-white/5 border border-purple-500/30 rounded-xl px-4 py-3 text-xl text-center text-white focus:outline-none focus:border-purple-400">
+        </div>
+
         <button onclick="adminStartGame()" class="glow-btn bg-gradient-to-r from-green-500 to-emerald-600 px-12 py-4 rounded-2xl text-2xl font-black tracking-wide flex items-center gap-3 mx-auto">
           <i class="fa-solid fa-play"></i> BẮT ĐẦU GAME
         </button>
@@ -431,6 +507,27 @@
           <div id="modal-player-list" class="max-h-80 overflow-y-auto divide-y divide-slate-800 border border-slate-800 rounded-xl p-2 bg-slate-950/50">
             <!-- Render danh sách chi tiết -->
           </div>
+        </div>
+      </div>
+
+      <!-- THÔNG BÁO CHUYỂN TAB (tự ẩn sau 3 giây) -->
+      <div id="cheat-toasts" class="fixed top-4 left-1/2 -translate-x-1/2 z-[60] flex flex-col items-center gap-2 pointer-events-none"></div>
+
+      <!-- NÚT + MODAL DANH SÁCH GHI NHẬN GIAN LẬN -->
+      <button id="cheat-btn" onclick="toggleCheatModal(true)" class="hidden fixed bottom-4 right-4 z-40 bg-red-600 hover:bg-red-500 text-white px-4 py-3 rounded-2xl font-bold text-sm shadow-2xl items-center gap-2 border border-red-300/40">
+        <i class="fa-solid fa-triangle-exclamation"></i> Ghi nhận gian lận
+        <span id="cheat-count" class="bg-white text-red-600 rounded-full px-2 py-0.5 text-xs font-black">0</span>
+      </button>
+
+      <div id="cheat-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-red-500/40 w-full max-w-lg rounded-3xl p-6 shadow-2xl relative">
+          <button onclick="toggleCheatModal(false)" class="absolute top-4 right-4 text-gray-400 hover:text-white text-2xl font-bold">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+          <h3 class="text-xl font-bold text-red-300 mb-4 flex items-center gap-2">
+            <i class="fa-solid fa-user-secret"></i> Danh sách ghi nhận gian lận
+          </h3>
+          <div id="cheat-list" class="max-h-96 overflow-y-auto divide-y divide-slate-800 border border-slate-800 rounded-xl p-2 bg-slate-950/50"></div>
         </div>
       </div>
 
@@ -680,6 +777,15 @@
   </div>
 
   <script>
+    // Link API ngân hàng câu hỏi (không hiển thị trên giao diện)
+    const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbxcr1JQfRQ2F40pyGgXLix9x3VQREv_ZiGdwzSlQzv2Ca_mgAp2Xuu_1dTI6HBDEyI/exec';
+
+    let gameRunning = false;
+    let cheatLog = [];
+    let cheatSeen = new Set();
+    let playerPlaying = false;
+    let cheatCurrentEid = null;
+
     let currentRole = '';
     let questions = [];
     let players = {}; 
@@ -779,6 +885,14 @@
       }
     };
 
+    function joinFromHome() {
+      const code = document.getElementById('roomCodeHome').value.trim();
+      if (!code) return alert('Vui lòng nhập Mã Phòng!');
+      switchRole('player');
+      document.getElementById('roomCodeInput').value = code;
+      document.getElementById('playerName').focus();
+    }
+
     function switchRole(role) {
       currentRole = role;
       document.getElementById('role-selector').classList.add('hidden');
@@ -791,10 +905,9 @@
 
     // --- QUẢN TRỊ (ADMIN) ---
     async function fetchQuestionsAndCreateRoom() {
-      const url = document.getElementById('sheetUrl').value.trim();
+      const url = SHEET_API_URL;
       const pin = document.getElementById('pinCode').value.trim();
       const msg = document.getElementById('setup-msg');
-      timeLimit = parseInt(document.getElementById('timeLimit').value) || 15;
 
       if (!pin || pin.length !== 6) {
         msg.innerText = "⚠️ Vui lòng nhập đủ 6 chữ số bảo mật!";
@@ -854,6 +967,11 @@
     function handleAdminMessage(data) {
       if (!data || typeof data.pid !== 'string' || !/^p[a-z0-9]{4,12}$/.test(data.pid)) return;
 
+      if (data.type === 'CHEAT') {
+        recordCheat(data);
+        return;
+      }
+
       if (data.type === 'PLAYER_JOIN') {
         const name = String(data.name || 'Học sinh').trim().slice(0, 30) || 'Học sinh';
         if (players[data.pid]) players[data.pid].name = name;
@@ -881,6 +999,48 @@
         }
         currentAnswersCount[data.selected]++;
       }
+    }
+
+    function recordCheat(data) {
+      const p = players[data.pid];
+      if (!p || !gameRunning) return;
+      const key = data.pid + ':' + String(data.eid || '');
+      if (cheatSeen.has(key)) return;
+      cheatSeen.add(key);
+
+      cheatLog.unshift({ pid: data.pid, name: p.name, qNum: currentQIndex + 1, time: new Date().toLocaleTimeString('vi-VN') });
+      document.getElementById('cheat-count').innerText = cheatLog.length;
+      renderCheatList();
+      showCheatToast(p.name);
+    }
+
+    function showCheatToast(name) {
+      const box = document.getElementById('cheat-toasts');
+      const el = document.createElement('div');
+      el.className = 'bg-red-600 text-white px-6 py-3 rounded-2xl shadow-2xl border-2 border-red-300 font-bold text-lg flex items-center gap-3 animate-next-q';
+      el.innerHTML = '<i class="fa-solid fa-triangle-exclamation text-yellow-300"></i><span>' + escapeHtml(name) + ' vừa chuyển tab khác!</span>';
+      box.appendChild(el);
+      setTimeout(() => el.remove(), 3000);
+    }
+
+    function renderCheatList() {
+      const list = document.getElementById('cheat-list');
+      if (cheatLog.length === 0) {
+        list.innerHTML = '<p class="text-gray-500 italic text-center py-4">Chưa có ai bị ghi nhận.</p>';
+        return;
+      }
+      list.innerHTML = cheatLog.map(c => `
+        <div class="flex items-center justify-between p-3 text-sm">
+          <span class="font-bold text-red-200">${escapeHtml(c.name)}</span>
+          <span class="text-gray-400">Câu ${c.qNum} · ${escapeHtml(c.time)}</span>
+        </div>
+      `).join('');
+    }
+
+    function toggleCheatModal(show) {
+      const m = document.getElementById('cheat-modal');
+      if (show) { renderCheatList(); m.classList.remove('hidden'); }
+      else m.classList.add('hidden');
     }
 
     function toggleQRModal(show) {
@@ -952,6 +1112,14 @@
     }
 
     function adminStartGame() {
+      timeLimit = Math.min(60, Math.max(5, parseInt(document.getElementById('timeLimit').value) || 15));
+      gameRunning = true;
+      cheatLog = [];
+      cheatSeen.clear();
+      renderCheatList();
+      const cb = document.getElementById('cheat-btn');
+      cb.classList.remove('hidden');
+      cb.classList.add('flex');
       document.getElementById('admin-lobby').classList.add('hidden');
       document.getElementById('admin-game').classList.remove('hidden');
       currentQIndex = 0;
@@ -1099,6 +1267,7 @@
     }
 
     function finishGame() {
+      gameRunning = false;
       document.getElementById('admin-game').classList.add('hidden');
       document.getElementById('admin-loading').classList.remove('hidden');
       broadcastToPlayers({ type: 'END_GAME' });
@@ -1153,6 +1322,7 @@
     // --- HỌC SINH (PLAYER) ---
     function handlePlayerMessage(data) {
           if (data.type === 'START_GAME') {
+        playerPlaying = true;
             document.getElementById('player-wait').classList.add('hidden');
             document.getElementById('player-quiz').classList.remove('hidden');
           }
@@ -1243,6 +1413,7 @@
             }
           }
           else if (data.type === 'KICKED' && data.pid === myPid) {
+            playerPlaying = false;
             document.getElementById('player-wait').classList.add('hidden');
             document.getElementById('player-quiz').classList.add('hidden');
             document.getElementById('player-end').classList.remove('hidden');
@@ -1251,6 +1422,7 @@
             document.getElementById('player-end-desc').innerText = 'Bạn đã bị Quản trị viên loại ra khỏi phòng chơi này.';
           }
           else if (data.type === 'END_GAME') {
+            playerPlaying = false;
             document.getElementById('player-quiz').classList.add('hidden');
             document.getElementById('player-end').classList.remove('hidden');
           }
@@ -1297,6 +1469,24 @@
         if (joined) handlePlayerMessage(data);
       }, sendJoin);
     }
+
+    // Phát hiện học sinh chuyển tab / thoát khỏi trang trong lúc chơi
+    function sendCheat() {
+      Net.pub(NET_UP, { type: 'CHEAT', pid: myPid, eid: cheatCurrentEid, qIndex: currentQIndex });
+    }
+    document.addEventListener('visibilitychange', () => {
+      if (!playerPlaying || !myPid) return;
+      if (document.hidden) {
+        cheatCurrentEid = myPid + '_' + Date.now();
+        sendCheat();
+      } else if (cheatCurrentEid) {
+        sendCheat(); // gửi lại khi quay về, phòng khi lúc rời đi chưa gửi kịp
+        cheatCurrentEid = null;
+        const statusMsg = document.getElementById('player-status-msg');
+        statusMsg.innerText = '⚠️ Bạn vừa rời khỏi trang! Hành vi này đã được ghi nhận.';
+        statusMsg.className = 'text-center text-sm font-bold text-red-400 italic min-h-[20px] animate-pulse';
+      }
+    });
 
     function playerSelectOption(opt) {
       if (playerHasAnswered) return;
