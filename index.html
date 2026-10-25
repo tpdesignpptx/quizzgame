@@ -735,7 +735,7 @@
       <div id="player-quiz" class="bg-slate-800 border border-slate-700 rounded-3xl p-6 shadow-2xl hidden">
         <div class="flex justify-between items-center mb-4">
           <span id="player-q-progress" class="text-xs font-bold bg-slate-700 px-3 py-1 rounded-full text-slate-300">Câu 1</span>
-          <span id="player-timer" class="text-sm font-bold text-amber-400"><i class="fa-regular fa-clock"></i> 15s</span>
+          <span id="player-timer" class="hidden text-sm font-bold text-amber-400"><i class="fa-regular fa-clock"></i> 15s</span>
         </div>
 
         <!-- THÔNG BÁO NHẮC NHỞ ĐỌC ĐỀ KÈM ĐỒNG HỒ CÁT 3S -->
@@ -1467,6 +1467,12 @@
               resultTitle.innerText = 'CHÍNH XÁC!';
               resultTitle.className = 'text-2xl font-black text-emerald-300';
               resultScore.innerText = `+${(data.scores || {})[myPid] || 0} điểm`;
+            } else if (!mySelectedOption) {
+              resultBox.className = 'p-6 bg-slate-800/80 border-2 border-amber-500/60 rounded-2xl text-center mb-4 shadow-xl';
+              resultIcon.innerHTML = '<i class="fa-regular fa-clock text-amber-400"></i>';
+              resultTitle.innerText = 'Bạn chưa có câu trả lời ...';
+              resultTitle.className = 'text-2xl font-black text-amber-300';
+              resultScore.innerText = '';
             } else {
               resultBox.className = 'p-6 bg-red-900/60 border-2 border-red-500 rounded-2xl text-center mb-4 shadow-xl';
               resultIcon.innerHTML = '<i class="fa-solid fa-circle-xmark text-red-400"></i>';
