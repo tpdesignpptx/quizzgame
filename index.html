@@ -787,6 +787,7 @@
     const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbxcr1JQfRQ2F40pyGgXLix9x3VQREv_ZiGdwzSlQzv2Ca_mgAp2Xuu_1dTI6HBDEyI/exec';
 
     let gameRunning = false;
+    let roomReady = false;
     let adminPhase = 'idle';      // idle | read | answer | reveal
     let adminPhaseEnd = 0;        // mốc thời gian kết thúc giai đoạn hiện tại
     let adminLastReveal = null;
@@ -818,6 +819,7 @@
     // ===== KẾT NỐI REALTIME QUA MQTT (không cần chung wifi, không cần đăng ký) =====
     // Dùng 2 broker công cộng cùng lúc, hỏng 1 cái vẫn chạy bằng cái còn lại.
     const MQTT_BROKERS = [
+      'wss://mqtt.eclipseprojects.io:443/mqtt', // cổng 443: gần như mạng 4G nào cũng cho qua
       'wss://broker.emqx.io:8084/mqtt',
       'wss://broker.hivemq.com:8884/mqtt'
     ];
@@ -850,11 +852,13 @@
             connectTimeout: 8000
           });
           c.on('connect', () => {
-            c.subscribe(subTopic, { qos: 0 });
-            if (!this.connectedOnce) {
-              this.connectedOnce = true;
-              if (onFirstConnect) onFirstConnect();
-            }
+            c.subscribe(subTopic, { qos: 0 }, (err) => {
+              if (err) return;
+              if (!this.connectedOnce) {
+                this.connectedOnce = true;
+                if (onFirstConnect) onFirstConnect();
+              }
+            });
           });
           c.on('message', (topic, payload) => {
             try {
@@ -946,14 +950,26 @@
           document.getElementById('admin-lobby').classList.remove('hidden');
 
           roomCode = Math.floor(1000 + Math.random() * 9000).toString();
-          document.getElementById('room-code').innerText = roomCode;
-          document.getElementById('modal-room-code').innerText = roomCode;
+          roomReady = false;
+          document.getElementById('room-code').innerText = '· · · ·';
+          document.getElementById('qrcode').innerHTML =
+            '<div style="width:170px;height:170px" class="flex flex-col items-center justify-center gap-3 text-slate-500">' +
+            '<div class="w-10 h-10 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>' +
+            '<span class="text-xs font-semibold text-center">Đang kết nối<br>máy chủ...</span></div>';
+          const startBtn = document.querySelector('#admin-lobby button[onclick="adminStartGame()"]');
+          startBtn.disabled = true;
+          startBtn.classList.add('opacity-40', 'cursor-not-allowed');
 
           setNetTopics(roomCode);
-          showAdminQR();
-          Net.init(NET_UP, handleAdminMessage, () => {
-            document.getElementById('player-list').innerHTML = `<span class="text-gray-400 italic">Sẵn sàng! Hãy quét mã QR để vào phòng.</span>`;
-          });
+          document.getElementById('player-list').innerHTML = `<span class="text-gray-400 italic">Đang kết nối máy chủ, mã phòng và mã QR sẽ hiện khi sẵn sàng...</span>`;
+          Net.init(NET_UP, handleAdminMessage, showAdminQR);
+
+          // Quá 15 giây chưa kết nối được thì báo lỗi (vẫn tự thử lại ở nền)
+          setTimeout(() => {
+            if (!roomReady) {
+              document.getElementById('player-list').innerHTML = `<span class="text-red-400 font-semibold">Chưa kết nối được máy chủ trung gian. Kiểm tra mạng của máy chiếu, hệ thống vẫn đang tự thử lại...</span>`;
+            }
+          }, 15000);
 
         } else {
           msg.innerText = "❌ Không tìm thấy câu hỏi nào!";
@@ -964,7 +980,13 @@
     }
 
     function showAdminQR() {
-      document.getElementById('player-list').innerHTML = `<span class="text-gray-400 italic">Đang kết nối máy chủ... bạn có thể cho học sinh quét mã QR ngay.</span>`;
+      roomReady = true;
+      document.getElementById('room-code').innerText = roomCode;
+      document.getElementById('modal-room-code').innerText = roomCode;
+      document.getElementById('player-list').innerHTML = `<span class="text-gray-400 italic">Sẵn sàng! Hãy quét mã QR để vào phòng.</span>`;
+      const startBtn = document.querySelector('#admin-lobby button[onclick="adminStartGame()"]');
+      startBtn.disabled = false;
+      startBtn.classList.remove('opacity-40', 'cursor-not-allowed');
 
       const currentUrl = window.location.href.split('?')[0].split('#')[0];
       const playerJoinUrl = `${currentUrl}?role=player&room=${roomCode}`;
@@ -1060,6 +1082,7 @@
     }
 
     function toggleQRModal(show) {
+      if (show && !roomReady) return;
       const modal = document.getElementById('qr-modal');
       if (show) modal.classList.remove('hidden');
       else modal.classList.add('hidden');
@@ -1517,9 +1540,10 @@
       const joinTimeout = setTimeout(() => {
         if (joined) return;
         clearInterval(joinRetry);
+        const okCount = Net.clients.filter(c => c.connected).length;
         msg.innerText = Net.isConnected()
-          ? "❌ Không tìm thấy phòng này. Kiểm tra lại mã phòng và chắc chắn máy chiếu đã tạo phòng!"
-          : "❌ Không kết nối được tới máy chủ trung gian. Kiểm tra mạng rồi thử lại!";
+          ? `❌ Không tìm thấy phòng này (đã nối ${okCount}/${Net.clients.length} máy chủ). Kiểm tra lại mã phòng và chắc chắn máy chiếu đã hiện mã!`
+          : `❌ Không kết nối được tới máy chủ trung gian (0/${Net.clients.length}). Mạng đang chặn, hãy thử đổi wifi/4G rồi vào lại!`;
         Net.close();
       }, 15000);
 
