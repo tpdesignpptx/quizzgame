@@ -303,6 +303,12 @@
       .name-plate { font-size: 0.7rem !important; padding: 6px 6px; }
     }
 
+    @keyframes toastSlide {
+      from { opacity: 0; transform: translateX(40px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    .toast-slide { animation: toastSlide 0.35s ease-out forwards; }
+
     /* ============ GIAO DIỆN ĐEN HIỆN ĐẠI ============ */
     body {
       background-color: #050507;
@@ -511,7 +517,7 @@
       </div>
 
       <!-- THÔNG BÁO CHUYỂN TAB (tự ẩn sau 3 giây) -->
-      <div id="cheat-toasts" class="fixed top-4 left-1/2 -translate-x-1/2 z-[60] flex flex-col items-center gap-2 pointer-events-none"></div>
+      <div id="cheat-toasts" class="fixed bottom-4 right-[250px] z-[60] flex flex-col items-end gap-2 pointer-events-none"></div>
 
       <!-- NÚT + MODAL DANH SÁCH GHI NHẬN GIAN LẬN -->
       <button id="cheat-btn" onclick="toggleCheatModal(true)" class="hidden fixed bottom-4 right-4 z-40 bg-red-600 hover:bg-red-500 text-white px-4 py-3 rounded-2xl font-bold text-sm shadow-2xl items-center gap-2 border border-red-300/40">
@@ -937,7 +943,10 @@
           document.getElementById('modal-room-code').innerText = roomCode;
 
           setNetTopics(roomCode);
-          Net.init(NET_UP, handleAdminMessage, showAdminQR);
+          showAdminQR();
+          Net.init(NET_UP, handleAdminMessage, () => {
+            document.getElementById('player-list').innerHTML = `<span class="text-gray-400 italic">Sẵn sàng! Hãy quét mã QR để vào phòng.</span>`;
+          });
 
         } else {
           msg.innerText = "❌ Không tìm thấy câu hỏi nào!";
@@ -948,7 +957,7 @@
     }
 
     function showAdminQR() {
-      document.getElementById('player-list').innerHTML = `<span class="text-gray-400 italic">Sẵn sàng! Hãy quét mã QR để vào phòng.</span>`;
+      document.getElementById('player-list').innerHTML = `<span class="text-gray-400 italic">Đang kết nối máy chủ... bạn có thể cho học sinh quét mã QR ngay.</span>`;
 
       const currentUrl = window.location.href.split('?')[0].split('#')[0];
       const playerJoinUrl = `${currentUrl}?role=player&room=${roomCode}`;
@@ -1017,7 +1026,7 @@
     function showCheatToast(name) {
       const box = document.getElementById('cheat-toasts');
       const el = document.createElement('div');
-      el.className = 'bg-red-600 text-white px-6 py-3 rounded-2xl shadow-2xl border-2 border-red-300 font-bold text-lg flex items-center gap-3 animate-next-q';
+      el.className = 'bg-red-600 text-white px-5 py-3 rounded-2xl shadow-2xl border-2 border-red-300 font-bold text-base flex items-center gap-3 toast-slide';
       el.innerHTML = '<i class="fa-solid fa-triangle-exclamation text-yellow-300"></i><span>' + escapeHtml(name) + ' vừa chuyển tab khác!</span>';
       box.appendChild(el);
       setTimeout(() => el.remove(), 3000);
