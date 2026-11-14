@@ -750,49 +750,103 @@
       clients: [],
       seen: new Set(),
       connectedOnce: false,
-      init(subTopic, onMsg, onFirstConnect) {
+      single: false,   // true = học sinh: chỉ 1 kết nối; false = quản trị: nối cả 3 broker
+      idx: 0,
+      fails: 0,
+      sessionOk: false,
+      sessionAt: 0,
+      subTopics: [],
+      onMsg: null,
+      onFirst: null,
+
+      init(subTopic, onMsg, onFirstConnect, single) {
         this.close();
-        MQTT_BROKERS.forEach(url => {
-          const c = mqtt.connect(url, {
-            clientId: 'tpq_' + Math.random().toString(16).slice(2, 10),
-            clean: true,
-            reconnectPeriod: 2000,
-            connectTimeout: 8000
-          });
-          c.on('connect', () => {
-            c.subscribe(Array.isArray(subTopic) ? subTopic : [subTopic], { qos: 0 }, (err) => {
-              if (err) return;
-              if (!this.connectedOnce) {
-                this.connectedOnce = true;
-                if (onFirstConnect) onFirstConnect();
-              }
-            });
-          });
-          c.on('message', (topic, payload) => {
-            try {
-              const m = JSON.parse(payload.toString());
-              if (m._id) {
-                if (this.seen.has(m._id)) return;
-                this.seen.add(m._id);
-                if (this.seen.size > 500) this.seen.delete(this.seen.values().next().value);
-              }
-              onMsg(m);
-            } catch (e) {}
-          });
-          c.on('error', () => {});
-          this.clients.push(c);
-        });
+        this.subTopics = Array.isArray(subTopic) ? subTopic : [subTopic];
+        this.onMsg = onMsg;
+        this.onFirst = onFirstConnect;
+        this.single = !!single;
+        if (this.single) {
+          // Cả lớp chung 1 wifi = chung 1 IP, broker chặn khi quá ~20 kết nối/IP/broker
+          // => mỗi học sinh chỉ nối 1 broker ngẫu nhiên, bị từ chối thì tự chuyển broker kế tiếp
+          this.idx = Math.floor(Math.random() * MQTT_BROKERS.length);
+          this.connectOne(this.idx);
+        } else {
+          MQTT_BROKERS.forEach((u, i) => this.connectOne(i));
+        }
       },
+
+      connectOne(i) {
+        const self = this;
+        const c = mqtt.connect(MQTT_BROKERS[i], {
+          clientId: 'tpq_' + Math.random().toString(16).slice(2, 10),
+          clean: true,
+          reconnectPeriod: 2000,
+          connectTimeout: 6000,
+          keepalive: 30
+        });
+
+        c.on('connect', () => {
+          if (self.clients.indexOf(c) < 0) return;
+          self.sessionOk = true;
+          self.sessionAt = Date.now();
+          c.subscribe(self.subTopics, { qos: 0 }, (err) => {
+            if (err) return;
+            if (!self.connectedOnce) {
+              self.connectedOnce = true;
+              if (self.onFirst) self.onFirst();
+            }
+          });
+        });
+
+        c.on('close', () => {
+          if (!self.single || self.clients.indexOf(c) < 0) return;
+          // Chưa từng nối được hoặc sống < 4 giây = bị broker từ chối
+          if (!self.sessionOk || Date.now() - self.sessionAt < 4000) self.fails++;
+          else self.fails = 0;
+          self.sessionOk = false;
+          if (self.fails >= 2) self.rotate();
+        });
+
+        c.on('message', (topic, payload) => {
+          try {
+            const m = JSON.parse(payload.toString());
+            if (m._id) {
+              if (self.seen.has(m._id)) return;
+              self.seen.add(m._id);
+              if (self.seen.size > 500) self.seen.delete(self.seen.values().next().value);
+            }
+            if (self.onMsg) self.onMsg(m);
+          } catch (e) {}
+        });
+
+        c.on('error', () => {});
+        this.clients.push(c);
+      },
+
+      rotate() {
+        const old = this.clients;
+        this.clients = [];
+        this.fails = 0;
+        this.sessionOk = false;
+        old.forEach(c => { try { c.end(true); } catch (e) {} });
+        this.idx = (this.idx + 1) % MQTT_BROKERS.length;
+        this.connectOne(this.idx);
+      },
+
       pub(topic, obj) {
         const m = JSON.stringify(Object.assign({ _id: Math.random().toString(36).slice(2) + Date.now().toString(36) }, obj));
         this.clients.forEach(c => { if (c.connected) c.publish(topic, m, { qos: 0 }); });
       },
       isConnected() { return this.clients.some(c => c.connected); },
+
       close() {
-        this.clients.forEach(c => { try { c.end(true); } catch (e) {} });
+        const old = this.clients;
         this.clients = [];
         this.connectedOnce = false;
+        this.fails = 0;
+        this.sessionOk = false;
         this.seen.clear();
+        old.forEach(c => { try { c.end(true); } catch (e) {} });
       }
     };
 
@@ -1382,7 +1436,7 @@
     const TEST_MIN_OK = 3;        // tối thiểu phải nhận lại được
     const TEST_MAX_AVG = 1500;    // trễ trung bình tối đa (ms)
     const TEST_MAX_PEAK = 3500;   // trễ cao nhất tối đa (ms)
-    const LOST_AFTER_MS = 10000;  // quá ngần này không nhận được tín hiệu từ phòng => coi là mất kết nối
+    const LOST_AFTER_MS = 15000;  // quá ngần này không nhận được tín hiệu từ phòng => coi là mất kết nối
 
     function getPid(code) {
       const fresh = () => 'p' + Math.random().toString(36).slice(2, 9);
@@ -1482,7 +1536,7 @@
         if (document.hidden) return; // tab đang ẩn: trình duyệt làm chậm timer, không tính
         if (!Net.isConnected()) {
           if (!offlineSince) offlineSince = Date.now();
-          else if (Date.now() - offlineSince > 6000) return forceRelogin('Mất kết nối tới máy chủ.');
+          else if (Date.now() - offlineSince > 15000) return forceRelogin('Mất kết nối tới máy chủ.');
         } else {
           offlineSince = 0;
         }
@@ -1575,8 +1629,8 @@
 
       // Không nối được broker nào trong 12 giây
       connectTimeoutTimer = setTimeout(() => {
-        fail(`❌ Không kết nối được tới máy chủ trung gian (0/${Net.clients.length}). Mạng đang chặn hoặc quá yếu, hãy đổi wifi/4G rồi kết nối và đăng nhập lại!`);
-      }, 12000);
+        fail(`❌ Không kết nối được tới máy chủ trung gian Mạng đang chặn hoặc quá yếu, hãy đổi wifi/4G rồi kết nối và đăng nhập lại!`);
+      }, 30000);
 
       Net.init([NET_DOWN, ackTopic(myPid)], (data) => {
         // Phản hồi ping
@@ -1637,7 +1691,7 @@
             }
           });
         }, Math.random() * 800); // lệch nhịp để nhiều học sinh vào cùng lúc không dồn gói
-      });
+      }, true); // true = học sinh chỉ dùng 1 kết nối broker
     }
 
     // ----- Hiển thị câu hỏi & đáp án trên điện thoại học sinh -----
@@ -1851,29 +1905,20 @@
       document.getElementById('player-chosen-text').innerText = `✅ Đã chọn đáp án: ${opt}`;
       document.getElementById('player-status-msg').innerText = '';
 
-      Net.pub(NET_UP, { type: 'SUBMIT_ANSWER', pid: myPid, qIndex: currentQIndex, selected: opt });
+      // Gửi lặp lại vài lần phòng gói tin bị rớt (QoS 0); máy quản trị tự bỏ qua bản trùng
+      const qi = currentQIndex;
+      const send = () => Net.pub(NET_UP, { type: 'SUBMIT_ANSWER', pid: myPid, qIndex: qi, selected: opt });
+      send();
+      let n = 0;
+      const iv = setInterval(() => {
+        if (playerPhase === 'reveal' || playerPhaseQ !== qi || !joinedOk || ++n > 4) { clearInterval(iv); return; }
+        send();
+      }, 1200);
     }
 
     function disablePlayerButtons() {
       document.querySelectorAll('.opt-btn').forEach(b => b.disabled = true);
     }
-    window.__MY_PLAYER_JOIN = playerJoin;
   </script>
-<script src="quiz-fix.js?v=3"></script>
-<script>
-  // Nếu quiz-fix.js ghi đè playerJoin (bản cũ không có bước kiểm tra kết nối) thì đặt lại bản mới
-  window.playerJoin = window.__MY_PLAYER_JOIN;
-  // Máy quản trị luôn trả lời PING dù quiz-fix.js có thay handleAdminMessage
-  (function () {
-    const orig = window.handleAdminMessage;
-    window.handleAdminMessage = function (d) {
-      if (d && d.type === 'PING' && typeof d.pid === 'string' && /^p[a-z0-9]{4,12}$/.test(d.pid)) {
-        Net.pub(ackTopic(d.pid), { type: 'PONG', pid: d.pid, seq: d.seq, t: d.t });
-        return;
-      }
-      return orig.apply(this, arguments);
-    };
-  })();
-</script>
 </body>
 </html>
