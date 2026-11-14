@@ -602,10 +602,12 @@
         <input type="text" id="playerName" placeholder="Nhập tên học sinh..." class="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-center text-lg text-white mb-4 focus:outline-none focus:border-purple-500">
 
         <button id="btn-join" onclick="playerJoin()" class="w-full bg-purple-600 hover:bg-purple-500 font-bold py-4 rounded-xl text-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">Vào Màn Hình Chờ</button>
-        <div id="conn-bar-wrap" class="hidden mt-4 h-3 w-full bg-slate-900 rounded-full overflow-hidden border border-white/10">
-          <div id="conn-bar" class="h-full w-0 bg-amber-400 rounded-full transition-all duration-500"></div>
+        <div id="conn-steps" class="hidden mt-4 text-left bg-slate-900/70 border border-white/10 rounded-2xl p-4 space-y-3">
+          <div class="flex items-center gap-3"><span id="cs-icon-1" class="w-6 text-center"></span><span id="cs-label-1" class="text-sm font-semibold">Kết nối máy chủ</span></div>
+          <div class="flex items-center gap-3"><span id="cs-icon-2" class="w-6 text-center"></span><span id="cs-label-2" class="text-sm font-semibold">Kiểm tra đường truyền</span></div>
+          <div class="flex items-center gap-3"><span id="cs-icon-3" class="w-6 text-center"></span><span id="cs-label-3" class="text-sm font-semibold">Vào phòng</span></div>
         </div>
-        <p id="player-login-msg" class="text-base text-amber-400 mt-3 font-bold leading-snug"></p>
+        <p id="player-login-msg" class="text-sm text-amber-400 mt-3 font-semibold leading-snug"></p>
       </div>
 
       <div id="player-wait" class="bg-slate-800 border border-slate-700 rounded-3xl p-8 text-center shadow-2xl hidden">
@@ -1056,10 +1058,22 @@
       box.innerHTML = playerList.map(([id, p], i) =>
         `<div class="flex items-center gap-3 bg-purple-500/10 border border-purple-500/30 rounded-xl px-3 py-2">
           <span class="w-7 h-7 shrink-0 bg-purple-600/40 text-purple-200 rounded-full flex items-center justify-center text-xs font-black">${i + 1}</span>
-          <span class="font-semibold text-gray-100 truncate">${escapeHtml(p.name)}</span>
+          <span class="font-semibold text-gray-100 truncate flex-1">${escapeHtml(p.name)}</span>
+          ${p.rtt ? `<span class="text-xs font-bold ${p.rtt < 500 ? 'text-emerald-400' : (p.rtt < 1500 ? 'text-amber-400' : 'text-red-400')}">${p.rtt}ms</span>` : ''}
+          <button onclick="kickFromQr('${id}')" title="Loại thí sinh này" class="shrink-0 bg-red-500/20 hover:bg-red-500 text-red-300 hover:text-white border border-red-500/30 px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1">
+            <i class="fa-solid fa-user-xmark"></i> Loại
+          </button>
         </div>`
       ).join('');
+
     }
+
+    function kickFromQr(id) {
+      const p = players[id];
+      if (!p) return;
+      if (confirm('Loại "' + p.name + '" khỏi phòng? Người này có thể vào lại bằng cách quét mã lần nữa.')) kickPlayer(id);
+    }
+
 
     function renderPlayerList() {
       const playerList = Object.entries(players);
@@ -1119,6 +1133,7 @@
     function kickPlayer(peerId) {
       if (players[peerId]) {
         Net.pub(NET_DOWN, { type: 'KICKED', pid: peerId });
+        Net.pub(ackTopic(peerId), { type: 'KICKED', pid: peerId });
         delete players[peerId];
         renderPlayerList();
       }
@@ -1381,20 +1396,38 @@
       } catch (e) { return fresh(); }
     }
 
+    let connStepNow = 1;
     function connProgress(pct, level) {
-      const wrap = document.getElementById('conn-bar-wrap');
-      const bar = document.getElementById('conn-bar');
+      const wrap = document.getElementById('conn-steps');
       if (pct == null) { wrap.classList.add('hidden'); return; }
       wrap.classList.remove('hidden');
-      bar.style.width = pct + '%';
-      bar.className = 'h-full rounded-full transition-all duration-500 ' +
-        (level === 'error' ? 'bg-red-500' : level === 'ok' ? 'bg-emerald-400' : 'bg-amber-400');
+      let step = pct <= 12 ? 1 : (pct < 90 ? 2 : 3);
+      if (pct >= 100 && level === 'error') step = connStepNow; else connStepNow = step;
+      for (let i = 1; i <= 3; i++) {
+        const icon = document.getElementById('cs-icon-' + i);
+        const label = document.getElementById('cs-label-' + i);
+        if (i < step) {
+          icon.innerHTML = '<i class="fa-solid fa-circle-check text-emerald-400"></i>';
+          label.className = 'text-sm font-semibold text-emerald-300';
+        } else if (i === step) {
+          if (level === 'error') {
+            icon.innerHTML = '<i class="fa-solid fa-circle-xmark text-red-400"></i>';
+            label.className = 'text-sm font-semibold text-red-300';
+          } else {
+            icon.innerHTML = '<i class="fa-solid fa-spinner animate-spin text-amber-400"></i>';
+            label.className = 'text-sm font-semibold text-amber-200';
+          }
+        } else {
+          icon.innerHTML = '<i class="fa-regular fa-circle text-slate-500"></i>';
+          label.className = 'text-sm font-semibold text-slate-500';
+        }
+      }
     }
 
     function setLoginMsg(text, level) {
       const el = document.getElementById('player-login-msg');
       el.innerText = text;
-      el.className = 'text-base mt-3 font-bold leading-snug ' +
+      el.className = 'text-sm mt-3 font-semibold leading-snug ' +
         (level === 'error' ? 'text-red-400' : level === 'ok' ? 'text-emerald-400' : 'text-amber-400');
     }
 
@@ -1434,6 +1467,7 @@
       ['player-wait', 'player-quiz', 'player-end'].forEach(id => document.getElementById(id).classList.add('hidden'));
       document.getElementById('player-login').classList.remove('hidden');
       setJoinBusy(false);
+      connStepNow = 3;
       connProgress(100, 'error');
       setLoginMsg('⚠️ ' + reason + ' Vui lòng kiểm tra wifi/4G rồi bấm "Vào Màn Hình Chờ" để kết nối và đăng nhập lại!', 'error');
       try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch (e) {}
@@ -1464,7 +1498,7 @@
     function runConnTest(onDone) {
       const t = connTest = { sent: {}, rtts: [], onPong: null };
       let finished = false, seq = 0, dl = null, iv = null;
-      setLoginMsg('🔎 Bước 2/3: Đang kiểm tra đường truyền (0/' + TEST_TOTAL + ' gói)...', 'warn');
+      setLoginMsg('🔎 Đang kiểm tra đường truyền (0/' + TEST_TOTAL + ' gói)...', 'warn');
       connProgress(35, 'warn');
 
       const finish = () => {
@@ -1485,7 +1519,7 @@
         const id = seq;
         t.sent[id] = Date.now();
         Net.pub(NET_UP, { type: 'PING', pid: myPid, seq: id, t: t.sent[id] });
-        setLoginMsg('🔎 Bước 2/3: Đang kiểm tra đường truyền (' + t.rtts.length + '/' + TEST_TOTAL + ' gói đã phản hồi)...', 'warn');
+        setLoginMsg('🔎 Đang kiểm tra đường truyền (' + t.rtts.length + '/' + TEST_TOTAL + ' gói đã phản hồi)...', 'warn');
         if (seq >= TEST_TOTAL) {
           clearInterval(iv);
           dl = setTimeout(finish, 3000);
@@ -1511,7 +1545,7 @@
       connTest = null;
       joinedOk = false;
       setJoinBusy(true);
-      setLoginMsg('⏳ Bước 1/3: Đang kết nối tới máy chủ...', 'warn');
+      setLoginMsg('⏳ Đang kết nối tới máy chủ...', 'warn');
       connProgress(12, 'warn');
 
       myPid = getPid(code);
@@ -1530,7 +1564,7 @@
 
       const beginJoin = () => {
         connProgress(90, 'ok');
-        setLoginMsg(`✅ Bước 3/3: Đường truyền ổn định (${myRtt}ms). Đang vào phòng...`, 'ok');
+        setLoginMsg(`✅ Đường truyền ổn định (${myRtt}ms). Đang vào phòng...`, 'ok');
         sendJoin();
         joinRetryTimer = setInterval(() => { if (Net.isConnected() && !joinedOk) sendJoin(); }, 2000);
         joinTimeoutTimer = setTimeout(() => {
@@ -1553,7 +1587,7 @@
               delete connTest.sent[data.seq];
               connTest.rtts.push(Math.max(1, Date.now() - s));
               connProgress(35 + Math.round(connTest.rtts.length / TEST_TOTAL * 45), 'warn');
-              setLoginMsg('🔎 Bước 2/3: Đã nhận ' + connTest.rtts.length + '/' + TEST_TOTAL + ' gói · trễ ' + connTest.rtts[connTest.rtts.length - 1] + 'ms', 'warn');
+              setLoginMsg('🔎 Đã nhận ' + connTest.rtts.length + '/' + TEST_TOTAL + ' gói · trễ ' + connTest.rtts[connTest.rtts.length - 1] + 'ms', 'warn');
               if (connTest.onPong) connTest.onPong();
             }
           }
