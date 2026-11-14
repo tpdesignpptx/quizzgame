@@ -368,19 +368,37 @@
 
       <!-- MODAL PHÓNG TO MÃ QR -->
       <div id="qr-modal" class="fixed inset-0 bg-black/90 backdrop-blur-lg hidden z-50 flex items-center justify-center p-4 cursor-pointer" onclick="toggleQRModal(false)">
-        <div class="bg-slate-900/90 border-2 border-purple-500/60 p-8 rounded-3xl text-center shadow-2xl relative max-w-lg w-full" onclick="event.stopPropagation()">
-          <button onclick="toggleQRModal(false)" class="absolute top-4 right-4 text-gray-400 hover:text-white text-3xl font-bold">
+        <div class="bg-slate-900/90 border-2 border-purple-500/60 p-6 md:p-8 rounded-3xl shadow-2xl relative max-w-5xl w-full max-h-[95vh] overflow-y-auto" onclick="event.stopPropagation()">
+          <button onclick="toggleQRModal(false)" class="absolute top-4 right-4 text-gray-400 hover:text-white text-3xl font-bold z-10">
             <i class="fa-solid fa-xmark"></i>
           </button>
 
-          <span class="bg-purple-500/20 text-purple-300 px-4 py-1 rounded-full text-sm font-semibold border border-purple-500/30">QUÉT MÃ ĐỂ VÀO PHÒNG CHƠI</span>
-          <h2 id="modal-room-code" class="text-6xl font-black tracking-wider text-yellow-400 my-4">----</h2>
+          <div class="flex flex-col md:flex-row gap-6 md:gap-8 items-stretch">
+            <!-- BÊN TRÁI: MÃ QR -->
+            <div class="text-center md:w-auto flex flex-col items-center justify-center">
+              <span class="bg-purple-500/20 text-purple-300 px-4 py-1 rounded-full text-sm font-semibold border border-purple-500/30">QUÉT MÃ ĐỂ VÀO PHÒNG CHƠI</span>
+              <h2 id="modal-room-code" class="text-6xl font-black tracking-wider text-yellow-400 my-4">----</h2>
 
-          <div class="p-6 bg-white rounded-3xl shadow-2xl inline-block mx-auto mb-4 border-4 border-yellow-400">
-            <div id="modal-qrcode"></div>
+              <div class="p-6 bg-white rounded-3xl shadow-2xl inline-block mx-auto mb-4 border-4 border-yellow-400">
+                <div id="modal-qrcode"></div>
+              </div>
+
+              <p class="text-gray-300 font-medium text-sm">Bấm bất kỳ đâu bên ngoài để đóng lại</p>
+            </div>
+
+            <!-- BÊN PHẢI: TỔNG SỐ VÀ DANH SÁCH NGƯỜI CHƠI -->
+            <div class="flex-1 min-w-0 flex flex-col bg-black/30 border border-white/10 rounded-3xl p-5">
+              <div class="flex items-center justify-between mb-4 gap-3">
+                <h3 class="text-xl font-bold text-purple-300 flex items-center gap-2">
+                  <i class="fa-solid fa-users text-purple-400"></i> Người chơi đã vào
+                </h3>
+                <span class="bg-pink-500/20 text-pink-300 border border-pink-500/30 rounded-full px-5 py-1.5 font-black text-2xl whitespace-nowrap">
+                  <span id="qr-player-count">0</span> <span class="text-sm font-bold">người</span>
+                </span>
+              </div>
+              <div id="qr-player-list" class="flex-1 overflow-y-auto max-h-[55vh] md:max-h-[420px] grid grid-cols-1 sm:grid-cols-2 gap-2 content-start pr-1"></div>
+            </div>
           </div>
-
-          <p class="text-gray-300 font-medium">Bấm bất kỳ đâu để đóng lại</p>
         </div>
       </div>
 
@@ -1026,8 +1044,26 @@
       renderTimer = setTimeout(() => { renderTimer = null; renderPlayerList(); }, 150);
     }
 
+    function renderQrPlayerList(playerList) {
+      const cnt = document.getElementById('qr-player-count');
+      const box = document.getElementById('qr-player-list');
+      if (!cnt || !box) return;
+      cnt.innerText = playerList.length;
+      if (playerList.length === 0) {
+        box.innerHTML = '<p class="text-gray-500 italic col-span-full text-center py-6">Đang chờ học sinh quét mã...</p>';
+        return;
+      }
+      box.innerHTML = playerList.map(([id, p], i) =>
+        `<div class="flex items-center gap-3 bg-purple-500/10 border border-purple-500/30 rounded-xl px-3 py-2">
+          <span class="w-7 h-7 shrink-0 bg-purple-600/40 text-purple-200 rounded-full flex items-center justify-center text-xs font-black">${i + 1}</span>
+          <span class="font-semibold text-gray-100 truncate">${escapeHtml(p.name)}</span>
+        </div>`
+      ).join('');
+    }
+
     function renderPlayerList() {
       const playerList = Object.entries(players);
+      renderQrPlayerList(playerList);
       document.getElementById('player-count').innerText = `${playerList.length} Người`;
       document.getElementById('modal-player-count').innerText = playerList.length;
 
