@@ -1,56 +1,25 @@
 /* =====================================================================
-   quiz-fix.js  —  VÁ LỖI "39 HỌC SINH VÀO NHƯNG CHỈ 19 CHƠI ĐƯỢC"
-   Cách dùng: để file này cạnh index.html, rồi thêm 1 dòng NGAY TRƯỚC </body>
-   (nằm SAU thẻ <script> chính):
-       <script src="quiz-fix.js?v=2"></script>
-
-   Nguyên nhân: mỗi học sinh mở 3 kết nối (3 broker) cùng lúc. Cả lớp dùng
-   chung 1 wifi = chung 1 IP, nên broker công cộng chặn khi vượt ~20 kết nối
-   / IP / broker. Bản vá:
-   1) Quản trị: vẫn nối cả 3 broker (nghe + phát cả 3).
-   2) Học sinh: chỉ nối 1 broker (chọn ngẫu nhiên); bị từ chối / rớt thì
-      tự chuyển sang broker kế tiếp -> tải tự cân bằng giữa 3 broker.
-   3) Gửi đáp án lặp lại vài lần (QoS 0 có thể rớt gói); admin đã tự bỏ
-      qua bản trùng nên không bị cộng điểm 2 lần.
+   quiz-boost.js — Kết nối nhanh hơn + chịu tải nhiều người hơn
+   Cách dùng: XOÁ dòng <script src="quiz-fix.js..."> cũ (bản đó đã được
+   gộp sẵn vào index.html và sẽ GHI ĐÈ làm mất tính năng kiểm tra mạng).
+   Thay bằng 1 dòng NGAY TRƯỚC </body>, sau thẻ <script> chính:
+       <script src="quiz-boost.js?v=1"></script>
    ===================================================================== */
 (function () {
   'use strict';
 
-  // ---------- Net: ghi đè các hàm kết nối ----------
-  Net.single = false;
-  Net.idx = 0;
-  Net.fails = 0;
-  Net.sessionOk = false;
-  Net.sessionAt = 0;
-  Net.subTopics = [];
-  Net.onMsg = null;
-  Net.onFirst = null;
+  // 1) Thêm broker thứ 4: mỗi broker chịu ~20 kết nối / IP, thêm 1 broker = thêm ~20 chỗ / wifi
+  const EXTRA = 'wss://test.mosquitto.org:8081';
+  if (MQTT_BROKERS.indexOf(EXTRA) < 0) MQTT_BROKERS.push(EXTRA);
 
-  Net.init = function (subTopic, onMsg, onFirstConnect, single) {
-    this.close();
-    this.subTopics = Array.isArray(subTopic) ? subTopic : [subTopic];
-    this.onMsg = onMsg;
-    this.onFirst = onFirstConnect;
-    this.single = !!single;
-    this.fails = 0;
-    this.sessionOk = false;
-    if (this.single) {
-      // Học sinh: 1 kết nối duy nhất, chọn broker ngẫu nhiên
-      this.idx = Math.floor(Math.random() * MQTT_BROKERS.length);
-      this.connectOne(this.idx);
-    } else {
-      // Quản trị: nối tất cả broker
-      MQTT_BROKERS.forEach((u, i) => this.connectOne(i));
-    }
-  };
-
+  // 2) Kết nối nhanh: timeout ngắn, thử lại nhanh, broker từ chối LẦN ĐẦU là đổi broker ngay
   Net.connectOne = function (i) {
     const self = this;
     const c = mqtt.connect(MQTT_BROKERS[i], {
       clientId: 'tpq_' + Math.random().toString(16).slice(2, 10),
       clean: true,
-      reconnectPeriod: 2000,
-      connectTimeout: 6000,
+      reconnectPeriod: 1000,
+      connectTimeout: 4000,
       keepalive: 30
     });
 
@@ -69,11 +38,11 @@
 
     c.on('close', () => {
       if (!self.single || self.clients.indexOf(c) < 0) return;
-      // Kết nối chưa từng thành công hoặc sống < 4 giây = bị broker từ chối
-      if (!self.sessionOk || Date.now() - self.sessionAt < 4000) self.fails++;
-      else self.fails = 0;
+      const rejected = !self.sessionOk || Date.now() - self.sessionAt < 4000;
+      if (rejected) self.fails++; else self.fails = 0;
       self.sessionOk = false;
-      if (self.fails >= 2) self.rotate();
+      // Chưa từng vào được: đổi broker ngay lần fail đầu. Đã vào rồi mà rớt: cho 2 lần.
+      if (self.fails >= (self.connectedOnce ? 2 : 1)) self.rotate();
     });
 
     c.on('message', (topic, payload) => {
@@ -92,101 +61,37 @@
     this.clients.push(c);
   };
 
-  // Chuyển sang broker kế tiếp (chỉ dùng cho học sinh)
-  Net.rotate = function () {
-    const old = this.clients;
-    this.clients = [];
-    this.fails = 0;
-    this.sessionOk = false;
-    old.forEach(c => { try { c.end(true); } catch (e) {} });
-    this.idx = (this.idx + 1) % MQTT_BROKERS.length;
-    this.connectOne(this.idx);
-  };
+  // 3) Kiểm tra đường truyền nhanh hơn: gói cách nhau 350ms, đủ gói là xong ngay (~1.5s thay vì ~5s)
+  window.runConnTest = function (onDone) {
+    const t = connTest = { sent: {}, rtts: [], onPong: null };
+    let finished = false, seq = 0, dl = null, iv = null;
+    setLoginMsg('🔎 Đang kiểm tra đường truyền (0/' + TEST_TOTAL + ' gói)...', 'warn');
+    connProgress(35, 'warn');
 
-  Net.close = function () {
-    const old = this.clients;
-    this.clients = [];
-    this.connectedOnce = false;
-    this.fails = 0;
-    this.sessionOk = false;
-    this.seen.clear();
-    old.forEach(c => { try { c.end(true); } catch (e) {} });
-  };
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      clearInterval(iv);
+      clearTimeout(dl);
+      connTest = null;
+      const r = t.rtts;
+      const avg = r.length ? Math.round(r.reduce((a, b) => a + b, 0) / r.length) : 0;
+      const max = r.length ? Math.max.apply(null, r) : 0;
+      onDone({ received: r.length, total: TEST_TOTAL, avg: avg, max: max });
+    };
+    t.onPong = () => { if (t.rtts.length >= TEST_TOTAL) finish(); };
 
-  // ---------- Học sinh vào phòng ----------
-  let joining = false;
-  window.playerJoin = function () {
-    if (joining) return;
-    const code = document.getElementById('roomCodeInput').value.trim();
-    myPlayerName = document.getElementById('playerName').value.trim();
-    const msg = document.getElementById('player-login-msg');
-
-    if (!code) return alert('Vui lòng nhập Mã Phòng!');
-    if (!myPlayerName) return alert('Vui lòng nhập Tên!');
-
-    joining = true;
-    msg.innerText = '⏳ Đang kết nối tới phòng...';
-
-    myPid = 'p' + Math.random().toString(36).slice(2, 9);
-    setNetTopics(code);
-
-    let joined = false;
-    const sendJoin = () => Net.pub(NET_UP, { type: 'PLAYER_JOIN', pid: myPid, name: myPlayerName });
-
-    const joinRetry = setInterval(() => { if (Net.isConnected() && !joined) sendJoin(); }, 2000);
-    const joinTimeout = setTimeout(() => {
-      if (joined) return;
-      clearInterval(joinRetry);
-      msg.innerText = Net.isConnected()
-        ? '❌ Không tìm thấy phòng này. Kiểm tra lại mã phòng và chắc chắn máy chiếu đã hiện mã!'
-        : '❌ Không kết nối được tới máy chủ trung gian. Hãy thử đổi wifi/4G rồi vào lại!';
-      Net.close();
-      joining = false;
-    }, 45000);
-
-    Net.init([NET_DOWN, ackTopic(myPid)], (data) => {
-      if (data.type === 'JOIN_FULL' && data.pid === myPid && !joined) {
-        clearInterval(joinRetry);
-        clearTimeout(joinTimeout);
-        msg.innerText = '❌ Phòng đã đầy, không thể tham gia thêm!';
-        Net.close();
-        joining = false;
-        return;
+    const sendOne = () => {
+      seq++;
+      const id = seq;
+      t.sent[id] = Date.now();
+      Net.pub(NET_UP, { type: 'PING', pid: myPid, seq: id, t: t.sent[id] });
+      if (seq >= TEST_TOTAL) {
+        clearInterval(iv);
+        dl = setTimeout(finish, 2000);
       }
-      if (data.type === 'JOIN_ACK') {
-        if (data.pid === myPid && !joined) {
-          joined = true;
-          clearInterval(joinRetry);
-          clearTimeout(joinTimeout);
-          document.getElementById('player-login').classList.add('hidden');
-          document.getElementById('player-wait').classList.remove('hidden');
-          document.getElementById('player-display-name').innerText = myPlayerName;
-        }
-        return;
-      }
-      if (joined) handlePlayerMessage(data);
-    }, sendJoin, true);
-  };
-
-  // ---------- Học sinh chọn đáp án (gửi lặp lại cho chắc) ----------
-  window.playerSelectOption = function (opt) {
-    if (playerHasAnswered) return;
-    playerHasAnswered = true;
-    mySelectedOption = opt;
-    disablePlayerButtons();
-
-    document.getElementById('player-options-box').classList.add('hidden');
-    document.getElementById('player-answered-box').classList.remove('hidden');
-    document.getElementById('player-chosen-text').innerText = `✅ Đã chọn đáp án: ${opt}`;
-    document.getElementById('player-status-msg').innerText = '';
-
-    const qi = currentQIndex;
-    const send = () => Net.pub(NET_UP, { type: 'SUBMIT_ANSWER', pid: myPid, qIndex: qi, selected: opt });
-    send();
-    let n = 0;
-    const iv = setInterval(() => {
-      if (playerPhase === 'reveal' || playerPhaseQ !== qi || ++n > 4) { clearInterval(iv); return; }
-      send();
-    }, 1200);
+    };
+    iv = setInterval(sendOne, 350);
+    sendOne();
   };
 })();
