@@ -584,7 +584,10 @@
         <input type="text" id="playerName" placeholder="Nhập tên học sinh..." class="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-center text-lg text-white mb-4 focus:outline-none focus:border-purple-500">
 
         <button id="btn-join" onclick="playerJoin()" class="w-full bg-purple-600 hover:bg-purple-500 font-bold py-4 rounded-xl text-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">Vào Màn Hình Chờ</button>
-        <p id="player-login-msg" class="text-sm text-amber-400 mt-3 font-semibold leading-snug"></p>
+        <div id="conn-bar-wrap" class="hidden mt-4 h-3 w-full bg-slate-900 rounded-full overflow-hidden border border-white/10">
+          <div id="conn-bar" class="h-full w-0 bg-amber-400 rounded-full transition-all duration-500"></div>
+        </div>
+        <p id="player-login-msg" class="text-base text-amber-400 mt-3 font-bold leading-snug"></p>
       </div>
 
       <div id="player-wait" class="bg-slate-800 border border-slate-700 rounded-3xl p-8 text-center shadow-2xl hidden">
@@ -1342,10 +1345,20 @@
       } catch (e) { return fresh(); }
     }
 
+    function connProgress(pct, level) {
+      const wrap = document.getElementById('conn-bar-wrap');
+      const bar = document.getElementById('conn-bar');
+      if (pct == null) { wrap.classList.add('hidden'); return; }
+      wrap.classList.remove('hidden');
+      bar.style.width = pct + '%';
+      bar.className = 'h-full rounded-full transition-all duration-500 ' +
+        (level === 'error' ? 'bg-red-500' : level === 'ok' ? 'bg-emerald-400' : 'bg-amber-400');
+    }
+
     function setLoginMsg(text, level) {
       const el = document.getElementById('player-login-msg');
       el.innerText = text;
-      el.className = 'text-sm mt-3 font-semibold leading-snug ' +
+      el.className = 'text-base mt-3 font-bold leading-snug ' +
         (level === 'error' ? 'text-red-400' : level === 'ok' ? 'text-emerald-400' : 'text-amber-400');
     }
 
@@ -1385,6 +1398,7 @@
       ['player-wait', 'player-quiz', 'player-end'].forEach(id => document.getElementById(id).classList.add('hidden'));
       document.getElementById('player-login').classList.remove('hidden');
       setJoinBusy(false);
+      connProgress(100, 'error');
       setLoginMsg('⚠️ ' + reason + ' Vui lòng kiểm tra wifi/4G rồi bấm "Vào Màn Hình Chờ" để kết nối và đăng nhập lại!', 'error');
       try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch (e) {}
     }
@@ -1414,7 +1428,8 @@
     function runConnTest(onDone) {
       const t = connTest = { sent: {}, rtts: [], onPong: null };
       let finished = false, seq = 0, dl = null, iv = null;
-      setLoginMsg('⏳ Đang kiểm tra đường truyền...', 'warn');
+      setLoginMsg('🔎 Bước 2/3: Đang kiểm tra đường truyền (0/' + TEST_TOTAL + ' gói)...', 'warn');
+      connProgress(35, 'warn');
 
       const finish = () => {
         if (finished) return;
@@ -1434,6 +1449,7 @@
         const id = seq;
         t.sent[id] = Date.now();
         Net.pub(NET_UP, { type: 'PING', pid: myPid, seq: id, t: t.sent[id] });
+        setLoginMsg('🔎 Bước 2/3: Đang kiểm tra đường truyền (' + t.rtts.length + '/' + TEST_TOTAL + ' gói đã phản hồi)...', 'warn');
         if (seq >= TEST_TOTAL) {
           clearInterval(iv);
           dl = setTimeout(finish, 3000);
@@ -1459,7 +1475,8 @@
       connTest = null;
       joinedOk = false;
       setJoinBusy(true);
-      setLoginMsg('⏳ Đang kết nối tới máy chủ...', 'warn');
+      setLoginMsg('⏳ Bước 1/3: Đang kết nối tới máy chủ...', 'warn');
+      connProgress(12, 'warn');
 
       myPid = getPid(code);
       setNetTopics(code);
@@ -1469,13 +1486,15 @@
         Net.close();
         connTest = null;
         setJoinBusy(false);
+        connProgress(100, 'error');
         setLoginMsg(text, 'error');
       };
 
       const sendJoin = () => Net.pub(NET_UP, { type: 'PLAYER_JOIN', pid: myPid, name: myPlayerName, rtt: myRtt });
 
       const beginJoin = () => {
-        setLoginMsg(`✅ Đường truyền ổn định (${myRtt}ms). Đang vào phòng...`, 'ok');
+        connProgress(90, 'ok');
+        setLoginMsg(`✅ Bước 3/3: Đường truyền ổn định (${myRtt}ms). Đang vào phòng...`, 'ok');
         sendJoin();
         joinRetryTimer = setInterval(() => { if (Net.isConnected() && !joinedOk) sendJoin(); }, 2000);
         joinTimeoutTimer = setTimeout(() => {
@@ -1497,6 +1516,8 @@
             if (s) {
               delete connTest.sent[data.seq];
               connTest.rtts.push(Math.max(1, Date.now() - s));
+              connProgress(35 + Math.round(connTest.rtts.length / TEST_TOTAL * 45), 'warn');
+              setLoginMsg('🔎 Bước 2/3: Đã nhận ' + connTest.rtts.length + '/' + TEST_TOTAL + ' gói · trễ ' + connTest.rtts[connTest.rtts.length - 1] + 'ms', 'warn');
               if (connTest.onPong) connTest.onPong();
             }
           }
@@ -1516,6 +1537,7 @@
             document.getElementById('player-display-name').innerText = myPlayerName;
             document.getElementById('player-net-quality').innerText = `📶 Đường truyền ổn định (${myRtt}ms)`;
             setJoinBusy(false);
+            connProgress(null);
             startNetWatch();
           }
           return;
@@ -1765,7 +1787,23 @@
     function disablePlayerButtons() {
       document.querySelectorAll('.opt-btn').forEach(b => b.disabled = true);
     }
+    window.__MY_PLAYER_JOIN = playerJoin;
   </script>
-<script src="quiz-fix.js?v=2"></script>
+<script src="quiz-fix.js?v=3"></script>
+<script>
+  // Nếu quiz-fix.js ghi đè playerJoin (bản cũ không có bước kiểm tra kết nối) thì đặt lại bản mới
+  window.playerJoin = window.__MY_PLAYER_JOIN;
+  // Máy quản trị luôn trả lời PING dù quiz-fix.js có thay handleAdminMessage
+  (function () {
+    const orig = window.handleAdminMessage;
+    window.handleAdminMessage = function (d) {
+      if (d && d.type === 'PING' && typeof d.pid === 'string' && /^p[a-z0-9]{4,12}$/.test(d.pid)) {
+        Net.pub(ackTopic(d.pid), { type: 'PONG', pid: d.pid, seq: d.seq, t: d.t });
+        return;
+      }
+      return orig.apply(this, arguments);
+    };
+  })();
+</script>
 </body>
 </html>
